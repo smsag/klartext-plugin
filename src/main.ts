@@ -3,7 +3,8 @@
 //
 //   * the furniture switches — body classes from the settings, which
 //     styles.css turns into what is hidden (src/switches.ts);
-//   * the top row on hover, and the macOS window buttons with it.
+//   * the top row on hover, and the macOS window buttons with it, in every
+//     window: the main one and each pop-out keep their own row (RowWindow).
 //
 // Why the pointer is polled rather than followed with mouse events: with the
 // window frame hidden, the top strip is the window's drag handle, and macOS
@@ -17,6 +18,7 @@ import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, switchClasses, type Swit
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
 import {
   INITIAL,
+  coveredByFront,
   inTopBand,
   nextState,
   shouldPoll,
@@ -29,8 +31,14 @@ import {
 
 /** Present while the plugin runs; scopes every rule in styles.css. */
 const ACTIVE_CLASS = "klartext-top-row";
-/** Present while the row is hidden. */
-const HIDDEN_CLASS = "klartext-top-row-hidden";
+/**
+ * Each window's own state, on its own body: "hidden" while the row is hidden.
+ * An attribute, not a class, because Obsidian mirrors the main window's body
+ * classes into every pop-out and puts back a class a pop-out removed on the
+ * main window's next change; it does not copy attributes. A class would have
+ * made every window's row follow the main window's pointer.
+ */
+const STATE_ATTR = "data-klartext-top-row";
 
 /** The window's top row: the root split's tab strip and the headers of its
  *  top panes. A stacked pane further down carries no `mod-top`. */
@@ -44,50 +52,128 @@ const TOP_ROW = [
 const TICK_MS = 50;
 
 /** Just the parts of Electron this plugin touches, checked before use. */
-interface ElectronWindow {
+interface NativeWindow {
   getContentBounds(): Rect;
   setWindowButtonVisibility?: (visible: boolean) => void;
   setWindowButtonPosition?: (position: ButtonPosition) => void;
 }
-interface ElectronBits {
-  cursor(): Point;
-  window: ElectronWindow;
-  zoom(): number;
+interface ElectronModule {
+  remote?: { getCurrentWindow?: () => NativeWindow; screen?: { getCursorScreenPoint?: () => Point } };
+  webFrame?: { getZoomFactor?: () => number };
 }
 
-function loadElectron(): ElectronBits | string {
-  const req = (window as unknown as { require?: (id: string) => unknown }).require;
-  if (typeof req !== "function") return "window.require is not available";
-  const electron = req("electron") as {
-    remote?: { getCurrentWindow?: () => ElectronWindow; screen?: { getCursorScreenPoint?: () => Point } };
-    webFrame?: { getZoomFactor?: () => number };
-  } | null;
-  const remote = electron?.remote;
-  const win = remote?.getCurrentWindow?.();
-  const screen = remote?.screen;
-  if (!win || typeof win.getContentBounds !== "function") return "Electron's window is not reachable";
+/** A window's own Electron: every Obsidian window, pop-outs included, has its
+ *  own `require`, and `getCurrentWindow()` there is that window. */
+function electronOf(win: Window): ElectronModule | null {
+  const req = (win as unknown as { require?: (id: string) => unknown }).require;
+  return typeof req === "function" ? ((req("electron") as ElectronModule | null) ?? null) : null;
+}
+
+/** The cursor is the screen's, not a window's: one source for every window. */
+function loadCursor(): (() => Point) | string {
+  const electron = electronOf(window);
+  if (!electron) return "window.require is not available";
+  const screen = electron.remote?.screen;
   if (!screen || typeof screen.getCursorScreenPoint !== "function") return "Electron's cursor position is not reachable";
-  const webFrame = electron?.webFrame;
-  return {
-    cursor: () => screen.getCursorScreenPoint!(),
-    window: win,
-    zoom: () => (typeof webFrame?.getZoomFactor === "function" ? webFrame.getZoomFactor() : 1),
-  };
+  if (typeof electron.remote?.getCurrentWindow?.()?.getContentBounds !== "function") return "Electron's window is not reachable";
+  return () => screen.getCursorScreenPoint!();
+}
+
+/** One window's share of the top row: its pointer, its band, its state, its buttons. */
+class RowWindow {
+  state: TopRowState = INITIAL;
+  /** What was last applied, so nothing is re-applied every poll. */
+  appliedHidden: boolean | null = null;
+  appliedButtons: boolean | null = null;
+  /** The band's height in CSS px, measured on layout changes rather than per poll. */
+  bandCss = 0;
+  /** Where this window's own mouse events last saw the pointer; null when outside it. */
+  pointer: PointerSeen | null = null;
+  lastPollAt = 0;
+  lastInBand = false;
+  private readonly listeners = new AbortController();
+
+  constructor(
+    readonly win: Window,
+    readonly native: NativeWindow | null,
+    readonly zoom: () => number,
+  ) {
+    const opts = { signal: this.listeners.signal };
+    win.addEventListener("resize", () => this.measureBand(), opts);
+    win.document.addEventListener("mousemove", (e) => {
+      this.pointer = { y: e.clientY, at: Date.now() };
+    }, { ...opts, passive: true });
+    win.addEventListener("mouseout", (e) => {
+      if (e.relatedTarget === null) this.pointer = null; // left the window
+    }, opts);
+    this.measureBand();
+  }
+
+  get body(): HTMLElement {
+    return this.win.document.body;
+  }
+
+  /** The band covers everything in the top row, and never less than one header. */
+  measureBand(): void {
+    let bottom = 0;
+    this.win.document.querySelectorAll<HTMLElement>(TOP_ROW).forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) bottom = Math.max(bottom, r.bottom);
+    });
+    const header = parseFloat(getComputedStyle(this.body).getPropertyValue("--header-height"));
+    this.bandCss = Math.max(bottom, Number.isFinite(header) ? header : 40);
+  }
+
+  setHidden(hidden: boolean | null): void {
+    if (hidden) this.body.setAttribute(STATE_ATTR, "hidden");
+    else this.body.removeAttribute(STATE_ATTR);
+    this.appliedHidden = hidden;
+  }
+
+  /** macOS only: elsewhere Electron has no such method, and there is nothing to hide. */
+  setButtons(visible: boolean): void {
+    const set = this.native?.setWindowButtonVisibility;
+    if (typeof set === "function") set.call(this.native, visible);
+  }
+
+  /**
+   * Put the macOS window buttons where Obsidian's own formula says, from the
+   * variable styles.css may just have changed. Obsidian does the same on its
+   * next window event and, reading the same variable, lands on the same point.
+   * Only where Obsidian itself places them: macOS without the native frame.
+   */
+  placeButtons(): void {
+    const win = this.native;
+    if (!win || typeof win.setWindowButtonPosition !== "function") return;
+    const body = this.body;
+    if (!body.hasClass("mod-macos") || !body.hasClass("is-frameless")) return;
+    const style = getComputedStyle(body);
+    const position = windowButtonPosition(
+      parseFloat(style.getPropertyValue("--traffic-lights-offset-x")),
+      parseFloat(style.getPropertyValue("--traffic-lights-offset-y")),
+      this.zoom(),
+    );
+    try {
+      win.setWindowButtonPosition.call(win, position);
+    } catch (e) {
+      console.warn("[klartext] could not place the window buttons:", e);
+    }
+  }
+
+  /** Never leave a window without its buttons, or with them moved, because the
+   *  plugin or the row went away. */
+  dispose(): void {
+    this.listeners.abort();
+    this.setHidden(null);
+    if (this.appliedButtons === false) this.setButtons(true);
+  }
 }
 
 export default class KlartextPlugin extends Plugin {
   override settings: KlartextSettings = { ...DEFAULT_SETTINGS };
-  private electron: ElectronBits | null = null;
-  private state: TopRowState = INITIAL;
-  /** What was last applied, so nothing is re-applied every poll. */
-  private appliedHidden: boolean | null = null;
-  private appliedButtons: boolean | null = null;
-  /** The band's height in CSS px, measured on layout changes rather than per poll. */
-  private bandCss = 0;
-  /** Where the page's own mouse events last saw the pointer; null when outside the window. */
-  private pointer: PointerSeen | null = null;
-  private lastPollAt = 0;
-  private lastInBand = false;
+  private cursor: (() => Point) | null = null;
+  /** The main window and every pop-out, each with its own row. */
+  private readonly windows = new Map<Window, RowWindow>();
 
   override async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
@@ -97,155 +183,151 @@ export default class KlartextPlugin extends Plugin {
     // The furniture switches are CSS and work everywhere; the top row and the
     // window buttons need Electron, which only a desktop has.
     if (!Platform.isDesktopApp) return;
-    const electron = loadElectron();
-    if (typeof electron === "string") {
+    const cursor = loadCursor();
+    if (typeof cursor === "string") {
       // Silence would look like a plugin that does nothing; say why instead.
-      new Notice(`Klartext: the top row stays as it is — ${electron}.`);
-      console.warn(`[klartext] not starting: ${electron}`);
+      new Notice(`Klartext: the top row stays as it is — ${cursor}.`);
+      console.warn(`[klartext] not starting: ${cursor}`);
       return;
     }
-    this.electron = electron;
-    this.placeButtons();
+    this.cursor = cursor;
 
-    document.body.toggleClass(ACTIVE_CLASS, this.settings.topRowOnHover);
     this.app.workspace.onLayoutReady(() => {
-      this.measureBand();
-      this.registerEvent(this.app.workspace.on("layout-change", () => this.measureBand()));
-      this.registerEvent(this.app.workspace.on("css-change", () => this.measureBand()));
-      this.registerDomEvent(window, "resize", () => this.measureBand());
-      this.registerDomEvent(document, "mousemove", (e) => {
-        this.pointer = { y: e.clientY, at: Date.now() };
-      }, { passive: true });
-      this.registerDomEvent(window, "mouseout", (e) => {
-        if (e.relatedTarget === null) this.pointer = null; // left the window
-      });
+      this.addWindow(window);
+      this.app.workspace.iterateAllLeaves((leaf) => this.addWindow(leaf.getContainer().win));
+      this.registerEvent(this.app.workspace.on("window-open", (_w, win) => this.addWindow(win)));
+      this.registerEvent(this.app.workspace.on("window-close", (_w, win) => this.removeWindow(win)));
+      this.registerEvent(this.app.workspace.on("layout-change", () => this.measureBands()));
+      this.registerEvent(this.app.workspace.on("css-change", () => this.measureBands()));
       this.registerInterval(window.setInterval(() => this.tick(), TICK_MS));
       this.tick();
     });
   }
 
   override onunload(): void {
-    document.body.removeClass(ACTIVE_CLASS, HIDDEN_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
-    // Never leave a window without its buttons, or with them moved, because the
-    // plugin went away: with the class gone the variable is Obsidian's default
-    // again, and the same formula puts them back where Obsidian would.
-    if (this.appliedButtons === false) this.setButtons(true);
-    this.placeButtons();
+    for (const row of this.windows.values()) {
+      row.dispose();
+      row.body.removeClass(ACTIVE_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
+      // With the class gone the variable is Obsidian's default again, and the
+      // same formula puts the buttons back where Obsidian would.
+      row.placeButtons();
+    }
+    this.windows.clear();
+    document.body.removeClass(ACTIVE_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
   }
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
     this.applySwitches();
-    this.placeButtons();
-    document.body.toggleClass(ACTIVE_CLASS, this.settings.topRowOnHover && this.electron !== null);
-    if (!this.settings.topRowOnHover) {
-      document.body.removeClass(HIDDEN_CLASS);
-      this.state = INITIAL;
-      this.appliedHidden = null;
+    for (const row of this.windows.values()) {
+      row.placeButtons();
+      if (!this.settings.topRowOnHover) {
+        row.setHidden(null);
+        row.state = INITIAL;
+      }
+      row.appliedButtons = null; // re-apply under the new settings on the next poll
+      row.measureBand();
     }
-    this.appliedButtons = null; // re-apply under the new settings on the next poll
-    this.measureBand();
   }
 
-  /** One body class per switch that is on, and none for one that is off. */
+  private addWindow(win: Window): void {
+    if (this.windows.has(win)) return;
+    const electron = electronOf(win);
+    const native = electron?.remote?.getCurrentWindow?.() ?? null;
+    const webFrame = electron?.webFrame;
+    const row = new RowWindow(win, native, () =>
+      typeof webFrame?.getZoomFactor === "function" ? webFrame.getZoomFactor() : 1,
+    );
+    this.windows.set(win, row);
+    this.applySwitches();
+    row.placeButtons();
+  }
+
+  private removeWindow(win: Window): void {
+    this.windows.get(win)?.dispose();
+    this.windows.delete(win);
+  }
+
+  private measureBands(): void {
+    for (const row of this.windows.values()) row.measureBand();
+  }
+
+  /** One body class per switch that is on, and none for one that is off, in every window. */
   private applySwitches(): void {
     const on = new Set(switchClasses(this.settings));
-    for (const s of ALL_SWITCHES) document.body.toggleClass(s.cls, on.has(s.cls));
-  }
-
-  /**
-   * Put the macOS window buttons where Obsidian's own formula says, from the
-   * variable styles.css may just have changed. Obsidian does the same on its
-   * next window event and, reading the same variable, lands on the same point.
-   * Only where Obsidian itself places them: macOS without the native frame.
-   */
-  private placeButtons(): void {
-    const win = this.electron?.window;
-    if (!win || typeof win.setWindowButtonPosition !== "function") return;
-    const body = document.body;
-    if (!body.hasClass("mod-macos") || !body.hasClass("is-frameless")) return;
-    const style = getComputedStyle(body);
-    const position = windowButtonPosition(
-      parseFloat(style.getPropertyValue("--traffic-lights-offset-x")),
-      parseFloat(style.getPropertyValue("--traffic-lights-offset-y")),
-      this.electron!.zoom(),
-    );
-    try {
-      win.setWindowButtonPosition.call(win, position);
-    } catch (e) {
-      console.warn("[klartext] could not place the window buttons:", e);
+    const bodies = new Set([document.body, ...[...this.windows.values()].map((r) => r.body)]);
+    for (const body of bodies) {
+      for (const s of ALL_SWITCHES) body.toggleClass(s.cls, on.has(s.cls));
+      body.toggleClass(ACTIVE_CLASS, this.settings.topRowOnHover && this.cursor !== null);
     }
-  }
-
-  /** The band covers everything in the top row, and never less than one header. */
-  private measureBand(): void {
-    let bottom = 0;
-    document.querySelectorAll<HTMLElement>(TOP_ROW).forEach((el) => {
-      const r = el.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) bottom = Math.max(bottom, r.bottom);
-    });
-    const header = parseFloat(getComputedStyle(document.body).getPropertyValue("--header-height"));
-    this.bandCss = Math.max(bottom, Number.isFinite(header) ? header : 40);
   }
 
   private tick(): void {
-    const electron = this.electron;
-    if (!electron || document.hidden) return;
-    if (!this.settings.topRowOnHover) {
-      // The row is simply there. Give the buttons back if they were hidden.
-      if (this.appliedButtons === false) this.setButtons(true);
-      this.appliedButtons = true;
-      return;
-    }
-
+    if (!this.cursor) return;
+    // One ask of Electron per tick at most, shared by every window that needs it.
+    let cursorAt: Point | undefined;
+    const cursor = () => (cursorAt ??= this.cursor!());
+    // The focused window is the one in front; asked for its bounds only if a
+    // window behind it finds the pointer in its band.
+    const focused = [...this.windows.values()].find((r) => r.body.hasClass("is-focused")) ?? null;
+    let frontAt: Rect | null | undefined;
+    const front = (row: RowWindow) =>
+      focused === null || focused === row || !focused.native ? null : (frontAt ??= focused.native.getContentBounds());
     const now = Date.now();
-    let inBand = this.lastInBand;
-    if (this.pointer !== null && this.pointer.y < this.bandCss) {
-      inBand = true; // the page saw it there itself: nothing to ask
-    } else if (shouldPoll({ now, shown: this.state.shown, pointer: this.pointer, lastPollAt: this.lastPollAt, bandCss: this.bandCss })) {
+    for (const row of this.windows.values()) {
       try {
-        inBand = inTopBand(electron.cursor(), electron.window.getContentBounds(), this.bandCss, electron.zoom());
+        this.tickWindow(row, now, cursor, front);
       } catch (e) {
-        // A window torn down mid-poll; the next poll either works or the plugin is unloading.
+        // A window torn down mid-poll; the next tick either works or it has closed.
         console.debug("[klartext] poll skipped:", e);
-        return;
       }
-      this.lastPollAt = now;
-    } else if (this.pointer !== null) {
-      inBand = false; // seen deep in the note, and already confirmed there
-    }
-    this.lastInBand = inBand;
-
-    const active = document.activeElement;
-    this.state = nextState(this.state, {
-      inBand,
-      focusInRow: active instanceof HTMLElement && active.closest(TOP_ROW) !== null,
-      held: document.body.hasClass("is-grabbing") || document.querySelector(".menu") !== null,
-      now,
-    });
-
-    const hidden = !this.state.shown;
-    if (hidden !== this.appliedHidden) {
-      document.body.toggleClass(HIDDEN_CLASS, hidden);
-      this.appliedHidden = hidden;
-    }
-
-    const buttons = windowButtonsVisible(
-      this.state.shown,
-      this.settings.hideWindowButtons,
-      document.body.hasClass("is-fullscreen"),
-      document.body.hasClass("is-hidden-frameless"),
-    );
-    if (buttons !== this.appliedButtons) {
-      this.setButtons(buttons);
-      this.appliedButtons = buttons;
     }
   }
 
-  /** macOS only: elsewhere Electron has no such method, and there is nothing to hide. */
-  private setButtons(visible: boolean): void {
-    const set = this.electron?.window.setWindowButtonVisibility;
-    if (typeof set === "function") set.call(this.electron!.window, visible);
+  private tickWindow(row: RowWindow, now: number, cursor: () => Point, front: (row: RowWindow) => Rect | null): void {
+    const doc = row.win.document;
+    if (doc.hidden) return;
+    if (!this.settings.topRowOnHover) {
+      // The row is simply there. Give the buttons back if they were hidden.
+      if (row.appliedButtons === false) row.setButtons(true);
+      row.appliedButtons = true;
+      return;
+    }
+
+    let inBand = row.lastInBand;
+    if (row.pointer !== null && row.pointer.y < row.bandCss) {
+      inBand = true; // the page saw it there itself: nothing to ask
+    } else if (row.native && shouldPoll({ now, shown: row.state.shown, pointer: row.pointer, lastPollAt: row.lastPollAt, bandCss: row.bandCss })) {
+      const at = cursor();
+      inBand = inTopBand(at, row.native.getContentBounds(), row.bandCss, row.zoom()) && !coveredByFront(at, front(row));
+      row.lastPollAt = now;
+    } else if (row.pointer !== null) {
+      inBand = false; // seen deep in the note, and already confirmed there
+    }
+    row.lastInBand = inBand;
+
+    const active = doc.activeElement;
+    row.state = nextState(row.state, {
+      inBand,
+      // instanceOf, not instanceof: a pop-out's elements are its own window's HTMLElement.
+      focusInRow: active !== null && active.instanceOf(HTMLElement) && active.closest(TOP_ROW) !== null,
+      held: row.body.hasClass("is-grabbing") || doc.querySelector(".menu") !== null,
+      now,
+    });
+
+    const hidden = !row.state.shown;
+    if (hidden !== row.appliedHidden) row.setHidden(hidden);
+
+    const buttons = windowButtonsVisible(
+      row.state.shown,
+      this.settings.hideWindowButtons,
+      row.body.hasClass("is-fullscreen"),
+      row.body.hasClass("is-hidden-frameless"),
+    );
+    if (buttons !== row.appliedButtons) {
+      row.setButtons(buttons);
+      row.appliedButtons = buttons;
+    }
   }
 }
 

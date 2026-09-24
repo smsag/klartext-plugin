@@ -32,6 +32,17 @@ describe("every switch is declared and acted on, in both directions", () => {
   });
 });
 
+describe("the top row on hover", () => {
+  it("keys the hidden state on each window's own attribute, never a class Obsidian copies into pop-outs", () => {
+    // Obsidian mirrors the main window's body classes into every pop-out, so a
+    // hidden class made each pop-out's row follow the main window's pointer.
+    const hide = rules.filter((r) => /opacity:\s*0\s*;?/.test(r.body) && r.arms.some((a) => a.includes(".klartext-top-row")));
+    expect(hide.length).toBeGreaterThan(0);
+    for (const r of hide) for (const a of r.arms) expect(a).toContain('[data-klartext-top-row="hidden"]');
+    expect(css).not.toMatch(/klartext-top-row-hidden/);
+  });
+});
+
 describe("the tab strip", () => {
   it("hides only the window's own strip: a sidebar's strip is how its panes are switched", () => {
     const r = one("klartext-hide-tab-bar", /display:\s*none/);

@@ -14,8 +14,8 @@ body.klartext-top-row .workspace-split.mod-root .workspace-tabs.mod-top .workspa
   transition: opacity 140ms ease-out;
 }
 
-body.klartext-top-row.klartext-top-row-hidden .workspace-split.mod-root .workspace-tabs.mod-top > .workspace-tab-header-container,
-body.klartext-top-row.klartext-top-row-hidden .workspace-split.mod-root .workspace-tabs.mod-top .workspace-leaf-content > .view-header {
+body.klartext-top-row[data-klartext-top-row="hidden"] .workspace-split.mod-root .workspace-tabs.mod-top > .workspace-tab-header-container,
+body.klartext-top-row[data-klartext-top-row="hidden"] .workspace-split.mod-root .workspace-tabs.mod-top .workspace-leaf-content > .view-header {
   opacity: 0;
 }
 
@@ -25,7 +25,7 @@ body.klartext-top-row.klartext-top-row-hidden .workspace-split.mod-root .workspa
    buttons, not only when it lands on the header. Stated at more classes than
    such a theme rule carries, because a theme loads after a plugin and wins a
    tie. */
-body.klartext-top-row:not(.klartext-top-row-hidden) .workspace-split.mod-root .workspace-tabs.mod-top .workspace-leaf-content > .view-header {
+body.klartext-top-row:not([data-klartext-top-row="hidden"]) .workspace-split.mod-root .workspace-tabs.mod-top .workspace-leaf-content > .view-header {
   opacity: 1;
 }
 

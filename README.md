@@ -66,6 +66,12 @@ Only the main area's top row is affected: the root tab strip and the headers of
 its top panes. A pane stacked below another keeps its own strip and header, and
 the sidebars are left alone.
 
+**Every window has its own row.** A pop-out window hides its tab strip, note
+header and window buttons, and brings them back when the pointer reaches its
+own top, independently of the main window. Where a pop-out overlaps the main
+window's top edge, the pointer belongs to the window in front, the focused one,
+so hovering a pop-out's row does not bring up the main window's row behind it.
+
 ## How it knows where the pointer is
 
 With the window frame hidden, the empty part of the top strip is the window's
@@ -84,6 +90,11 @@ Each ask is two synchronous calls to Electron's main process, measured at
 | in the row, where the page can see it | 0 | measured |
 | in the row, over a drag handle (macOS) | about 10, while shown | by design; Linux has no blind drag handle to measure |
 | outside the window | about 3 | by design |
+
+The cursor is asked for once per look, however many windows are open; each
+extra pop-out adds one read of its own window's position to each ask. Measured
+with one pop-out and the pointer resting: 3.2 cursor reads and 6.4 position
+reads a second, against 3.2 and 3.2 with the main window alone.
 
 The one ask a second deep in the note is a heartbeat. It exists for a pointer
 that reaches the top without producing any mouse event, for example when the
@@ -111,6 +122,13 @@ the real X pointer and reading what paints:
   handle, the variable 32px and the buttons (14, 8). With Obsidian's frame the
   buttons stay at Obsidian's default (14, 12); with the native frame nothing is
   touched. Disabling the plugin while aligned puts them back at (14, 12).
+- **Pop-out windows:** a pop-out opened before or after the plugin starts has
+  its own row, which hides with the pointer in its note and returns at its top
+  edge while the main window's row stays as it is, and the reverse; hovering a
+  pop-out's top edge where it overlaps the main window's band leaves the main
+  row hidden. Its window buttons follow its own row (recorded against a
+  stand-in), a switch reaches its body, disabling the plugin gives its buttons
+  back, and a closed pop-out is forgotten.
 - **The top row:** every state in "The top row on hover", the poll rates in the
   table above, and a pointer that reached the top without any mouse event found
   in 0.73s. With the fading switched off the row stays and the plugin makes no
