@@ -8,7 +8,7 @@ import {
   nextState,
   shouldPoll,
   windowButtonsVisible,
-} from "./topRow";
+} from "../src/topRow";
 
 const win = { x: 100, y: 50, width: 1000, height: 800 };
 

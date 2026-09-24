@@ -20,11 +20,224 @@ body.klartext-top-row.klartext-top-row-hidden .workspace-split.mod-root .workspa
 }
 
 /* Shown means shown, even under a theme that fades the header until it is
-   hovered itself (Klartext's Hide View Header does): the row appears when the
+   hovered itself: the row appears when the
    pointer reaches the top of the window, including the corner with the window
    buttons, not only when it lands on the header. Stated at more classes than
    such a theme rule carries, because a theme loads after a plugin and wins a
    tie. */
 body.klartext-top-row:not(.klartext-top-row-hidden) .workspace-split.mod-root .workspace-tabs.mod-top .workspace-leaf-content > .view-header {
   opacity: 1;
+}
+
+/* ------------------------------------------------------------------
+   OBSIDIAN'S FURNITURE  (each switch off until it is turned on)
+
+   Twelve switches for parts of Obsidian's furniture, each a body class the
+   plugin sets from its own settings. Nearly all of them are a
+   `display: none`. Where Obsidian provides a lever for the job — a token, a
+   marker class, its own condition for when the window buttons are there —
+   the rule pulls that lever rather than out-specifying Obsidian, because a
+   lever keeps working when the selectors behind it change.
+
+   Each hides a thing that can also be reached another way, and where that is
+   not obvious the setting's own description says how.
+
+   A plugin's stylesheet loads BEFORE the theme, so a theme wins every tie.
+   The selectors below carry the body class plus the element's own classes,
+   which out-ranks a theme rule written against the element alone.
+
+   Every rule here was measured in Obsidian 1.13.7 before it moved out of the
+   Klartext theme; the scopes that were got wrong once are held by
+   tests/styles.test.ts.
+   ------------------------------------------------------------------ */
+
+/* The tab strip at the top of the window. Only the root split's: a sidebar's
+   own strip is how its panes are switched, and hiding that is a different
+   decision from hiding the window's. */
+body.klartext-hide-tab-bar .workspace-split.mod-root .workspace-tab-header-container {
+  display: none;
+}
+
+/* With the strip gone the note header becomes the window's top row, and on
+   macOS it has to do the strip's job of clearing the window buttons.
+
+   Obsidian reserves that room on the TAB CONTAINER
+   (`padding-left: calc(var(--size-4-2) + var(--frame-left-space))`), so
+   hiding the container takes the reservation with it and the header's back
+   button would sit under the buttons. Same formula, moved to the header.
+   --frame-left-space is 80px less the ribbon's width, so it is already right
+   whether or not the ribbon shows.
+
+   Only ONE header needs it, and Obsidian says which: it marks that strip's
+   `.workspace-tabs` with `mod-top-left-space`, and moves the marker to the
+   root split when the left sidebar collapses. Measured both ways. Scoping by
+   `.mod-root` alone would inset every pane's header in a split, including
+   ones nowhere near the buttons.
+
+   Only when the buttons are actually over the window, and Obsidian's own
+   condition says when: `.is-hidden-frameless:not(.is-fullscreen)`, copied
+   from its reservation rule. With the native frame or Obsidian's frame the
+   buttons sit in a titlebar above the workspace, and in fullscreen there
+   are none; the inset applied in all three before (44px each, measured).
+
+   macOS only: no other platform puts window buttons on the left, and on
+   Windows and Linux they are ordinary DOM elements in a titlebar this rule
+   never touches. */
+body.klartext-hide-tab-bar.mod-macos.is-hidden-frameless:not(.is-fullscreen) .workspace-tabs.mod-top-left-space .workspace-leaf-content > .view-header {
+  padding-left: calc(var(--size-4-2) + var(--frame-left-space));
+}
+
+/* The strip was also the window's drag handle. With the frame hidden,
+   Obsidian makes every top strip `-webkit-app-region: drag`, and nothing
+   else up there except a 40px square at the top of the ribbon, which the
+   ribbon's own sidebar button covers. Hidden, and with both sidebars
+   collapsed, none of 52 points along the top edge could move the window
+   (measured); with the header taking over, 36 of 52 can, against 13 for
+   Obsidian's own strip.
+
+   So the header standing in the strip's place takes that job too, under
+   Obsidian's own condition for it, copied: frameless, not fullscreen, and not
+   while a tab is being dragged (`is-grabbing`), where a drag region would
+   swallow the drop. Every platform, as Obsidian's is.
+
+   Obsidian already marks every `.clickable-icon`, button and input
+   `no-drag`, so the back/forward buttons and the actions stay clickable.
+   The breadcrumb and the title are plain text Obsidian never needed to
+   exempt, because no drag region sat under them until now; a click on
+   either opens something, so they are exempted here. What drags is the empty
+   header around them.
+
+   A drag region stops receiving mouse events on macOS and Windows. The top
+   row's reveal does not depend on them: the plugin asks Electron where the
+   pointer is (src/main.ts). NOT verified on macOS or Windows themselves. */
+body.klartext-hide-tab-bar.is-hidden-frameless:not(.is-fullscreen):not(.is-grabbing) .workspace-tabs.mod-top .workspace-leaf-content > .view-header {
+  -webkit-app-region: drag;
+}
+
+body.klartext-hide-tab-bar.is-hidden-frameless:not(.is-fullscreen):not(.is-grabbing) .workspace-tabs.mod-top .workspace-leaf-content > .view-header .view-header-title-container > * {
+  -webkit-app-region: no-drag;
+}
+
+/* The bar along the bottom. */
+body.klartext-hide-status-bar .status-bar {
+  display: none;
+}
+
+/* The vault profile at the foot of the sidebar. It carries the settings gear,
+   the help button and the vault switcher with it, which is why the
+   description says so.
+
+   Through Obsidian's OWN token rather than a `display: none` of our own:
+   `body:not(.is-mobile) .workspace-split.mod-left-split
+   .workspace-sidedock-vault-profile` sets `display: var(--vault-profile-display)`
+   at (0,4,1), so a rule at (0,2,1) matches, computes, and loses — measured,
+   the profile stayed on screen. Out-specifying it would work and would be a
+   worse answer: the variable is the lever Obsidian provides, and it keeps
+   working if that selector changes.
+
+   Desktop only. Obsidian builds this element inside `if (isDesktopApp)` and
+   nowhere else; a phone's vault name lives in its drawer header, built by
+   different code this switch has never been tried against. An earlier rule
+   here aimed at a "mobile copy" of the actions that does not exist. */
+body.klartext-hide-vault-name {
+  --vault-profile-display: none;
+}
+
+/* Every scroll bar. Scrolling itself is unaffected.
+
+   Through Obsidian's OWN token, not `::-webkit-scrollbar`. Obsidian sets the
+   standard `scrollbar-width` on every element from --scrollbar-native-width,
+   and on macOS — where it never adds `styled-scrollbars` — a `scrollbar-color`
+   on body as well. Once either standard property is set, Chromium ignores
+   every `::-webkit-scrollbar` rule for that element. Measured: a pseudo-element
+   rule on macOS computed `display: none` and left a 15px scroll bar on screen.
+
+   Every local override in Obsidian already sets this token to `none`, so
+   setting it on body agrees with all of them. Body itself is the one element
+   Obsidian gives a width directly (`body.styled-scrollbars`), hence the
+   second declaration; this rule ties that one and comes later. */
+body.klartext-hide-scrollbars {
+  --scrollbar-native-width: none;
+  scrollbar-width: none;
+}
+
+/* Both sidebar buttons. The sidebars still open by hotkey and command. */
+body.klartext-hide-sidebar-toggles .sidebar-toggle-button {
+  display: none;
+}
+
+/* Hover tooltips. The aria-label behind each one is untouched, so what a
+   screen reader announces does not change — only what is drawn.
+
+   Not `.mod-error`: Obsidian draws its validation errors in the same element
+   — a taken or illegal file name, an empty or duplicate property name, an
+   invalid tag or number, a Bases view name. Hidden, a rename to a taken name
+   just fails, with nothing on screen to say why. Measured with that rename:
+   "There's already a file with the same name" painted, then did not. */
+body.klartext-hide-tooltips .tooltip:not(.mod-error) {
+  display: none;
+}
+
+/* The file explorer's button row: new note, new folder, sort, collapse. */
+body.klartext-hide-explorer-buttons .workspace-leaf-content[data-type="file-explorer"] .nav-buttons-container {
+  display: none;
+}
+
+/* Properties above a note in Reading view. Live Preview keeps its own, and so
+   does the properties pane — this is the reading surface only. */
+body.klartext-hide-reading-properties .markdown-reading-view .metadata-container {
+  display: none;
+}
+
+/* The "Search options" panel that drops out of a search field — the list of
+   path:, file:, tag: and the rest. `mod-search-suggestion` is Obsidian's own
+   name for it, and the scope has to stay: a bare `.suggestion-container` is
+   also the quick switcher's result list and the editor's [[link]] and tag
+   autocomplete, and hiding those would break typing rather than quieten it.
+   The operators keep working; only the reminder goes. */
+body.klartext-hide-search-suggestions .suggestion-container.mod-search-suggestion {
+  display: none;
+}
+
+/* The match count beside each file in the search pane.
+
+   Scoped twice, and both are needed. `.tree-item-flair` is a general badge:
+   the TAG PANE uses it for each tag's count (three there against three in
+   the results, measured). And `.search-result-file-title` is not only the
+   search pane's: the BACKLINKS pane draws its rows with the same markup, and
+   its per-file count went from 2 to hidden under the first version of this
+   rule, from a switch that names only search. So the rule names the pane.
+
+   The "N results" line above the list is a different number and stays. */
+body.klartext-hide-search-counts .workspace-leaf-content[data-type="search"] .search-result-file-title .tree-item-flair-outer {
+  display: none;
+}
+
+/* The keyboard hints along the foot of a prompt — "↑↓ to navigate", "↵ to
+   open". Every prompt, not only the quick switcher: the command palette
+   carries the same row, measured, and a switch that quietened one and left
+   the other would read as a bug. The shortcuts themselves are untouched. */
+body.klartext-hide-prompt-instructions .prompt-instructions {
+  display: none;
+}
+
+/* The macOS window buttons, on the row's axis.
+
+   Obsidian places the buttons itself, from two of its own variables:
+   y = floor(--traffic-lights-offset-y × zoom / 2 − 8), and the same for x.
+   At the default 40px that is y = 12, meant to centre a 16px button on the
+   header's 20px axis. On the reporting Mac the buttons' centre measured 11.5px
+   below y (23.5 against a row at 19.5), so the value that lands them on the
+   row is 2 × 19.5 − 7 = 32, giving y = 8. Obsidian uses the same lever for a
+   pop-out modal (32px), which is how this is known to be a lever and not an
+   accident.
+
+   Setting the variable is all a stylesheet can do: Obsidian reads it the next
+   time it repositions the buttons, on a window event. The plugin applies it
+   straight away with the same formula (src/windowButtons.ts), so the two
+   never disagree. Only with the frame hidden, where the buttons sit over the
+   page; with a title bar they are Obsidian's own business. NOT verified on a
+   Mac: Linux has no window buttons to move. */
+body.klartext-align-window-buttons.mod-macos.is-hidden-frameless {
+  --traffic-lights-offset-y: 32px;
 }
