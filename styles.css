@@ -1,0 +1,30 @@
+/* The window's top row, shown only while the pointer is at the top.
+
+   It fades rather than collapsing: the row keeps its place, so the note never
+   moves when it appears or goes. Every rule is scoped to .klartext-top-row,
+   which the plugin sets only while it runs.
+
+   The row is the root split's tab strip and the headers of its top panes —
+   `mod-top` is Obsidian's marker for a strip on the window's top row, and a
+   stacked pane further down does not carry it. A strip a theme has hidden
+   stays hidden; only what is drawn is faded. */
+
+body.klartext-top-row .workspace-split.mod-root .workspace-tabs.mod-top > .workspace-tab-header-container,
+body.klartext-top-row .workspace-split.mod-root .workspace-tabs.mod-top .workspace-leaf-content > .view-header {
+  transition: opacity 140ms ease-out;
+}
+
+body.klartext-top-row.klartext-top-row-hidden .workspace-split.mod-root .workspace-tabs.mod-top > .workspace-tab-header-container,
+body.klartext-top-row.klartext-top-row-hidden .workspace-split.mod-root .workspace-tabs.mod-top .workspace-leaf-content > .view-header {
+  opacity: 0;
+}
+
+/* Shown means shown, even under a theme that fades the header until it is
+   hovered itself (Klartext's Hide View Header does): the row appears when the
+   pointer reaches the top of the window, including the corner with the window
+   buttons, not only when it lands on the header. Stated at more classes than
+   such a theme rule carries, because a theme loads after a plugin and wins a
+   tie. */
+body.klartext-top-row:not(.klartext-top-row-hidden) .workspace-split.mod-root .workspace-tabs.mod-top .workspace-leaf-content > .view-header {
+  opacity: 1;
+}

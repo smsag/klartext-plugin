@@ -1,0 +1,10 @@
+{
+  "id": "klartext",
+  "name": "Klartext",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Shows the window's top row (tabs, back and forward, and on macOS the window buttons) only while the pointer is at the top of the window.",
+  "author": "Steffen Seitz",
+  "authorUrl": "https://smsag.de",
+  "isDesktopOnly": true
+}
