@@ -4,6 +4,7 @@ import {
   IDLE_POLL_MS,
   INITIAL,
   NEAR_CSS,
+  coveredByFront,
   inTopBand,
   nextState,
   shouldPoll,
@@ -135,5 +136,25 @@ describe("shouldPoll", () => {
   it("asks at the slow rate when the pointer is outside the window or not yet seen", () => {
     expect(shouldPoll({ ...base, pointer: null, now: 10_299, lastPollAt: 10_000 })).toBe(false);
     expect(shouldPoll({ ...base, pointer: null, now: 10_300, lastPollAt: 10_000 })).toBe(true);
+  });
+});
+
+describe("coveredByFront", () => {
+  // A pop-out in front of the main window, its top edge inside the main window's band.
+  const popout = { x: 128, y: 50, width: 1024, height: 800 };
+
+  it("gives the pointer to the focused window wherever that window covers it", () => {
+    expect(coveredByFront({ x: 500, y: 70 }, popout)).toBe(true);
+    expect(coveredByFront({ x: 128, y: 50 }, popout)).toBe(true); // its top-left corner
+  });
+
+  it("leaves the pointer to the window behind where the front window does not reach", () => {
+    expect(coveredByFront({ x: 1500, y: 20 }, popout)).toBe(false); // right of it
+    expect(coveredByFront({ x: 500, y: 49 }, popout)).toBe(false); // just above it
+    expect(coveredByFront({ x: 1152, y: 70 }, popout)).toBe(false); // its right edge is exclusive
+  });
+
+  it("says nothing when there is no window in front", () => {
+    expect(coveredByFront({ x: 500, y: 70 }, null)).toBe(false);
   });
 });

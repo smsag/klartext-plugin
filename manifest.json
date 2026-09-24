@@ -1,7 +1,7 @@
 {
   "id": "klartext",
   "name": "Klartext",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "minAppVersion": "1.4.0",
   "description": "Obsidian's furniture on your terms: the top row (tabs, back and forward, macOS window buttons) only while the pointer is at the top, and switches to hide the status bar, scroll bars, tooltips and more.",
   "author": "Steffen Seitz",

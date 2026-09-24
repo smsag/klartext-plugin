@@ -59,6 +59,25 @@ export function inTopBand(pointer: Point, content: Rect, bandCss: number, zoom: 
   );
 }
 
+/**
+ * Whether another window in front covers the pointer. With a pop-out open,
+ * the pointer at the pop-out's top edge can also sit inside the band of the
+ * main window behind it, which would bring up that window's row, and on macOS
+ * its window buttons beside the pop-out. Electron reports no stacking order;
+ * the focused window is the one in front, so the pointer belongs to it
+ * wherever it covers. `front` is null when this window is the focused one, or
+ * when no window of the app is focused and nothing can be said.
+ */
+export function coveredByFront(pointer: Point, front: Rect | null): boolean {
+  return (
+    front !== null &&
+    pointer.x >= front.x &&
+    pointer.x < front.x + front.width &&
+    pointer.y >= front.y &&
+    pointer.y < front.y + front.height
+  );
+}
+
 export function nextState(prev: TopRowState, input: TopRowInput): TopRowState {
   if (input.inBand || input.focusInRow) return { shown: true, leftAt: null };
   if (!prev.shown) return INITIAL;
