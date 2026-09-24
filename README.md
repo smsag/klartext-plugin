@@ -143,6 +143,18 @@ npm run check   # unit tests, then typecheck and build
 npm run dev     # rebuild on change
 ```
 
+### Releasing
+
+Obsidian installs a plugin from its GitHub release, not from the repository.
+A release is cut by the **Release** workflow (Actions → Release → Run
+workflow, on `main`, with the version) after `manifest.json` and
+`package.json` carry that version on `main`. It refuses, before anything is
+published, if the version is not `x.y.z`, differs from either file or is
+already tagged, or if `npm run check` fails. Otherwise it tags the commit with
+the bare version, as Obsidian expects, and attaches the `main.js` it built with
+`manifest.json` and `styles.css`. The notes are GitHub's, generated from the
+merged pull requests.
+
 Every decision lives in `src/topRow.ts`, `src/settings.ts`, `src/switches.ts`
 and `src/windowButtons.ts`, which import neither Obsidian nor Electron and have
 unit tests. `src/main.ts` only reads the pointer, the window and the DOM, and

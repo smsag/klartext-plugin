@@ -1,0 +1,82 @@
+# Publish a release of the plugin: Actions → Release → Run workflow, with the
+# version to release. Obsidian installs a plugin from its GitHub release, not
+# from the repository: the tag is the bare version (0.2.1, not v0.2.1), and the
+# release carries main.js, manifest.json and styles.css.
+#
+# It refuses, before anything is published, unless:
+#   - it runs on the default branch;
+#   - the version is x.y.z, equals manifest.json's and package.json's, and has
+#     no tag yet;
+#   - npm run check passes (unit tests, typecheck, production build).
+# main.js is not committed; the release attaches the one this run built.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, as in manifest.json (for example 0.2.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Run on the default branch only
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$GITHUB_REF_NAME" != "$DEFAULT_BRANCH" ]; then
+            echo "::error::Releases are cut from $DEFAULT_BRANCH, not $GITHUB_REF_NAME."
+            exit 1
+          fi
+
+      - name: Version is x.y.z, matches manifest.json and package.json, and is not tagged yet
+        run: |
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::\"$VERSION\" is not x.y.z (Obsidian tags carry no v)."
+            exit 1
+          fi
+          for file in manifest.json package.json; do
+            found="$(node -p "require('./$file').version")"
+            if [ "$found" != "$VERSION" ]; then
+              echo "::error::$file says $found, not $VERSION. Bump it on $GITHUB_REF_NAME first."
+              exit 1
+            fi
+          done
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null; then
+            echo "::error::Tag $VERSION already exists."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: Tests, typecheck and build
+        run: npm run check
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$VERSION" main.js manifest.json styles.css \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --generate-notes
