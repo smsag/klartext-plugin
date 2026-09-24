@@ -161,3 +161,7 @@ unit tests. `src/main.ts` only reads the pointer, the window and the DOM, and
 applies the answer. `tests/styles.test.ts` holds the stylesheet's scopes — each
 one a class Obsidian reuses elsewhere, got wrong once and measured — and fails
 in the forbidden direction for every one of them.
+
+## License
+
+By [Steffen Seitz](https://smsag.de), under the [MIT License](LICENSE).
