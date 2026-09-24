@@ -53,8 +53,17 @@ body.klartext-top-row:not(.klartext-top-row-hidden) .workspace-split.mod-root .w
 
 /* The tab strip at the top of the window. Only the root split's: a sidebar's
    own strip is how its panes are switched, and hiding that is a different
-   decision from hiding the window's. */
-body.klartext-hide-tab-bar .workspace-split.mod-root .workspace-tab-header-container {
+   decision from hiding the window's.
+
+   And only where the note header is there to take its place. Obsidian's own
+   Appearance → "Show tab title bar" removes that header
+   (`body:not(.show-view-header):not(.is-phone) .view-header`), and with both
+   gone the window's top row was empty and nothing along the top edge could
+   drag the window — measured, 0 of 90 points. So the switch hides the strip
+   exactly where Obsidian keeps the header, which is the same two conditions
+   turned round: the title bar shown, or a phone. */
+body.klartext-hide-tab-bar.show-view-header .workspace-split.mod-root .workspace-tab-header-container,
+body.klartext-hide-tab-bar.is-phone .workspace-split.mod-root .workspace-tab-header-container {
   display: none;
 }
 

@@ -16,7 +16,7 @@ parts of Obsidian are *there*, and when. No setting lives in both.
 |---|---|---|
 | Show the top row only on hover | **on** | tab strip and note header fade out, and return when the pointer reaches the top |
 | Hide the window buttons with the row | **on** | macOS, frame hidden: the buttons come and go with the row |
-| Hide the tab bar | off | the window's tab strip; the note header takes its place, inset clear of the window buttons and draggable |
+| Hide the tab bar | off | the window's tab strip; the note header takes its place, inset clear of the window buttons and draggable. Kept while Obsidian's *Show tab title bar* is off, since there is no header then |
 | Align the window buttons with the row | off | macOS, frame hidden: moves the buttons onto the icons' axis |
 | Hide the status bar | off | word count, character count, backlink count |
 | Hide the vault name | off | the vault profile, **with the settings gear, help button and vault switcher** (desktop only) |
