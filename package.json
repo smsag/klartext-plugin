@@ -2,6 +2,7 @@
   "name": "klartext-plugin",
   "version": "0.2.1",
   "private": true,
+  "license": "MIT",
   "description": "Klartext: the window's top row on hover, for Obsidian",
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
