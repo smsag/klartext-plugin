@@ -1,4 +1,9 @@
-// Wiring: read the pointer, the window and the DOM; ask topRow.ts; apply.
+// Wiring: read the settings, the pointer, the window and the DOM; ask the
+// pure modules; apply. Two jobs:
+//
+//   * the furniture switches — body classes from the settings, which
+//     styles.css turns into what is hidden (src/switches.ts);
+//   * the top row on hover, and the macOS window buttons with it.
 //
 // Why the pointer is polled rather than followed with mouse events: with the
 // window frame hidden, the top strip is the window's drag handle, and macOS
@@ -8,6 +13,8 @@
 
 import { Notice, Platform, Plugin, PluginSettingTab, Setting, type App } from "obsidian";
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
+import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, switchClasses, type Switch } from "./switches";
+import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
 import {
   INITIAL,
   inTopBand,
@@ -40,6 +47,7 @@ const TICK_MS = 50;
 interface ElectronWindow {
   getContentBounds(): Rect;
   setWindowButtonVisibility?: (visible: boolean) => void;
+  setWindowButtonPosition?: (position: ButtonPosition) => void;
 }
 interface ElectronBits {
   cursor(): Point;
@@ -84,7 +92,10 @@ export default class KlartextPlugin extends Plugin {
   override async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
     this.addSettingTab(new KlartextSettingTab(this.app, this));
+    this.applySwitches();
 
+    // The furniture switches are CSS and work everywhere; the top row and the
+    // window buttons need Electron, which only a desktop has.
     if (!Platform.isDesktopApp) return;
     const electron = loadElectron();
     if (typeof electron === "string") {
@@ -94,8 +105,9 @@ export default class KlartextPlugin extends Plugin {
       return;
     }
     this.electron = electron;
+    this.placeButtons();
 
-    document.body.addClass(ACTIVE_CLASS);
+    document.body.toggleClass(ACTIVE_CLASS, this.settings.topRowOnHover);
     this.app.workspace.onLayoutReady(() => {
       this.measureBand();
       this.registerEvent(this.app.workspace.on("layout-change", () => this.measureBand()));
@@ -113,14 +125,56 @@ export default class KlartextPlugin extends Plugin {
   }
 
   override onunload(): void {
-    document.body.removeClass(ACTIVE_CLASS, HIDDEN_CLASS);
-    // Never leave a window without its buttons because the plugin went away.
+    document.body.removeClass(ACTIVE_CLASS, HIDDEN_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
+    // Never leave a window without its buttons, or with them moved, because the
+    // plugin went away: with the class gone the variable is Obsidian's default
+    // again, and the same formula puts them back where Obsidian would.
     if (this.appliedButtons === false) this.setButtons(true);
+    this.placeButtons();
   }
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
-    this.appliedButtons = null; // re-apply under the new setting on the next poll
+    this.applySwitches();
+    this.placeButtons();
+    document.body.toggleClass(ACTIVE_CLASS, this.settings.topRowOnHover && this.electron !== null);
+    if (!this.settings.topRowOnHover) {
+      document.body.removeClass(HIDDEN_CLASS);
+      this.state = INITIAL;
+      this.appliedHidden = null;
+    }
+    this.appliedButtons = null; // re-apply under the new settings on the next poll
+    this.measureBand();
+  }
+
+  /** One body class per switch that is on, and none for one that is off. */
+  private applySwitches(): void {
+    const on = new Set(switchClasses(this.settings));
+    for (const s of ALL_SWITCHES) document.body.toggleClass(s.cls, on.has(s.cls));
+  }
+
+  /**
+   * Put the macOS window buttons where Obsidian's own formula says, from the
+   * variable styles.css may just have changed. Obsidian does the same on its
+   * next window event and, reading the same variable, lands on the same point.
+   * Only where Obsidian itself places them: macOS without the native frame.
+   */
+  private placeButtons(): void {
+    const win = this.electron?.window;
+    if (!win || typeof win.setWindowButtonPosition !== "function") return;
+    const body = document.body;
+    if (!body.hasClass("mod-macos") || !body.hasClass("is-frameless")) return;
+    const style = getComputedStyle(body);
+    const position = windowButtonPosition(
+      parseFloat(style.getPropertyValue("--traffic-lights-offset-x")),
+      parseFloat(style.getPropertyValue("--traffic-lights-offset-y")),
+      this.electron!.zoom(),
+    );
+    try {
+      win.setWindowButtonPosition.call(win, position);
+    } catch (e) {
+      console.warn("[klartext] could not place the window buttons:", e);
+    }
   }
 
   /** The band covers everything in the top row, and never less than one header. */
@@ -137,6 +191,12 @@ export default class KlartextPlugin extends Plugin {
   private tick(): void {
     const electron = this.electron;
     if (!electron || document.hidden) return;
+    if (!this.settings.topRowOnHover) {
+      // The row is simply there. Give the buttons back if they were hidden.
+      if (this.appliedButtons === false) this.setButtons(true);
+      this.appliedButtons = true;
+      return;
+    }
 
     const now = Date.now();
     let inBand = this.lastInBand;
@@ -195,16 +255,39 @@ class KlartextSettingTab extends PluginSettingTab {
   }
 
   override display(): void {
-    this.containerEl.empty();
+    const el = this.containerEl;
+    el.empty();
+
+    new Setting(el).setName("Top row").setHeading();
+    this.toggle(
+      "Show the top row only on hover",
+      "The tab strip and the note header fade out, and come back when the pointer reaches the top of the window. " +
+        "The note never moves.",
+      "topRowOnHover",
+    );
+    this.toggle(
+      "Hide the window buttons with the row",
+      "macOS only, with the window frame set to hidden. The red, yellow and green buttons appear and " +
+        "disappear together with the top row. With a title bar, and in fullscreen, they are left alone.",
+      "hideWindowButtons",
+    );
+    for (const s of TOP_ROW_SWITCHES) this.switchToggle(s);
+
+    new Setting(el).setName("Hide").setHeading();
+    for (const s of HIDE_SWITCHES) this.switchToggle(s);
+  }
+
+  private switchToggle(s: Switch): void {
+    this.toggle(s.name, s.desc, s.key);
+  }
+
+  private toggle(name: string, desc: string, key: keyof KlartextSettings): void {
     new Setting(this.containerEl)
-      .setName("Hide the window buttons with the row")
-      .setDesc(
-        "macOS only, with the window frame set to hidden. The red, yellow and green buttons appear and " +
-          "disappear together with the top row. With a title bar, and in fullscreen, they are left alone.",
-      )
+      .setName(name)
+      .setDesc(desc)
       .addToggle((t) =>
-        t.setValue(this.plugin.settings.hideWindowButtons).onChange(async (v) => {
-          this.plugin.settings.hideWindowButtons = v;
+        t.setValue(this.plugin.settings[key]).onChange(async (v) => {
+          this.plugin.settings[key] = v;
           await this.plugin.saveSettings();
         }),
       );
