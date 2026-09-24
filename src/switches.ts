@@ -27,7 +27,8 @@ export const TOP_ROW_SWITCHES: readonly Switch[] = [
       "Hides the tab strip at the top of the window. The note header takes its place: on macOS it is inset clear of " +
       "the window buttons, and it becomes the handle for dragging the window. The strip carries the + new tab button " +
       "and the right sidebar button, which go with it; open a tab with the hotkey or the quick switcher, and the right " +
-      "sidebar with its hotkey or the command palette. Sidebar tab strips are left alone.",
+      "sidebar with its hotkey or the command palette. Sidebar tab strips are left alone. With Obsidian's own " +
+      "Appearance → “Show tab title bar” off there is no header to take the strip's place, so the strip stays.",
   },
   {
     key: "alignWindowButtons",

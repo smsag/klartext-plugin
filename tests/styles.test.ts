@@ -38,6 +38,15 @@ describe("the tab strip", () => {
     for (const a of r.arms) expect(a).toContain(".mod-root");
   });
 
+  it("hides the strip only where Obsidian keeps the note header: its title bar shown, or a phone", () => {
+    // With Obsidian's "Show tab title bar" off and the strip hidden too, the
+    // top row was empty and the window could not be dragged at all (0/90).
+    const r = one("klartext-hide-tab-bar", /display:\s*none/);
+    for (const a of r.arms) expect(a.includes(".show-view-header") || a.includes(".is-phone"), a).toBe(true);
+    expect(r.arms.some((a) => a.includes(".show-view-header"))).toBe(true);
+    expect(r.arms.some((a) => a.includes(".is-phone"))).toBe(true);
+  });
+
   it("insets only the header the window buttons overlap, macOS with the frame hidden, with Obsidian's own reservation", () => {
     const r = one("klartext-hide-tab-bar", /padding-left/);
     for (const a of r.arms) {
