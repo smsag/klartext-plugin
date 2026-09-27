@@ -58,6 +58,19 @@ describe("the tab strip", () => {
     expect(r.arms.some((a) => a.includes(".is-phone"))).toBe(true);
   });
 
+  it("keeps the header that takes the strip's place at the strip's height: it never shrinks", () => {
+    // Obsidian lets the header shrink beside the note (38.14px at 900px tall,
+    // 37.56px at 600px), so the find bar under it drifted against every
+    // sidebar's first row, which sits under a strip that never shrinks.
+    const r = one("klartext-hide-tab-bar", /flex-shrink:\s*0/);
+    for (const a of r.arms) {
+      expect(a).toContain(".mod-root");
+      expect(a).toContain(".view-header");
+      expect(a).toContain(".show-view-header");
+      expect(a).toContain(":not(.is-phone)");
+    }
+  });
+
   it("insets only the header the window buttons overlap, macOS with the frame hidden, with Obsidian's own reservation", () => {
     const r = one("klartext-hide-tab-bar", /padding-left/);
     for (const a of r.arms) {
