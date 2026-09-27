@@ -323,6 +323,7 @@ export default class KlartextPlugin extends Plugin {
       this.settings.hideWindowButtons,
       row.body.hasClass("is-fullscreen"),
       row.body.hasClass("is-hidden-frameless"),
+      row.win === window,
     );
     if (buttons !== row.appliedButtons) {
       row.setButtons(buttons);
@@ -348,9 +349,10 @@ class KlartextSettingTab extends PluginSettingTab {
       "topRowOnHover",
     );
     this.toggle(
-      "Hide the window buttons with the row",
-      "macOS only, with the window frame set to hidden. The red, yellow and green buttons appear and " +
-        "disappear together with the top row. With a title bar, and in fullscreen, they are left alone.",
+      "Hide a pop-out's window buttons with its row",
+      "macOS only, with the window frame set to hidden. In a pop-out window the red, yellow and green buttons " +
+        "appear and disappear together with its top row. The main window always keeps its buttons. With a title " +
+        "bar, and in fullscreen, they are left alone.",
       "hideWindowButtons",
     );
     for (const s of TOP_ROW_SWITCHES) this.switchToggle(s);

@@ -1,9 +1,9 @@
 # Klartext
 
 An Obsidian plugin for Obsidian's furniture. The window's top row (tab strip,
-note header with back and forward, and on macOS the red, yellow and green
-window buttons) shows only while the pointer is at the top of the window, and a
-set of switches hides the rest of what a quiet window can do without.
+note header with back and forward, and on macOS a pop-out's red, yellow and
+green window buttons) shows only while the pointer is at the top of the window,
+and a set of switches hides the rest of what a quiet window can do without.
 
 It is the companion to the [Klartext theme](https://github.com/smsag/Klartext),
 and works under any theme. **The split:** the theme decides how Klartext
@@ -15,13 +15,15 @@ parts of Obsidian are *there*, and when. No setting lives in both.
 | Setting | Default | Does |
 |---|---|---|
 | Show the top row only on hover | **on** | tab strip and note header fade out, and return when the pointer reaches the top |
-| Hide the window buttons with the row | **on** | macOS, frame hidden: the buttons come and go with the row |
+| Hide a pop-out's window buttons with its row | **on** | macOS, frame hidden: a pop-out's buttons come and go with its row. The main window always keeps its buttons |
 | Hide the tab bar | off | the window's tab strip; the note header takes its place, inset clear of the window buttons and draggable. Kept while Obsidian's *Show tab title bar* is off, since there is no header then |
 | Align the window buttons with the row | off | macOS, frame hidden: moves the buttons onto the icons' axis |
 | Hide the status bar | off | word count, character count, backlink count |
 | Hide the vault name | off | the vault profile, **with the settings gear, help button and vault switcher** (desktop only) |
 | Hide scroll bars | off | every scroll bar; scrolling is unaffected |
 | Hide the sidebar buttons | off | both sidebar toggles |
+| Hide the left sidebar's tab icons | off | the pane icons along the top of the left sidebar; the strip stays, so nothing moves and the window buttons keep their room (desktop only) |
+| Hide the right sidebar's tab icons | off | the same for the right sidebar (desktop only) |
 | Hide tooltips | off | hover tooltips; error messages still show |
 | Hide the file explorer's buttons | off | new note, new folder, sort, collapse |
 | Hide properties in Reading view | off | the properties block, Reading view only |
@@ -56,8 +58,10 @@ different macOS version may draw them differently. **Not verified on a Mac.**
   keeps it shown, and so does dragging a tab. A menu opened in the note does not
   reveal it.
 - **Keyboard focus inside the row reveals it** just as the pointer does.
-- **The window buttons follow the row** (macOS, with the window frame set to
-  hidden). There is a setting to leave them alone. In fullscreen, and with a
+- **A pop-out's window buttons follow its row** (macOS, with the window frame
+  set to hidden). There is a setting to leave them alone. **The main window
+  always keeps its buttons**: it is the window Obsidian is closed, minimised and
+  fullscreened by, so only the rest of its row fades. In fullscreen, and with a
   title bar, they are never touched: in fullscreen macOS draws them in its own
   menu bar, and in a title bar no pointer in the band could bring them back.
 - **Disabling the plugin puts everything back**, the window buttons included.
@@ -68,7 +72,7 @@ the sidebars are left alone.
 
 **Every window has its own row.** A pop-out window hides its tab strip, note
 header and window buttons, and brings them back when the pointer reaches its
-own top, independently of the main window. Where a pop-out overlaps the main
+own top, independently of the main window, whose buttons stay. Where a pop-out overlaps the main
 window's top edge, the pointer belongs to the window in front, the focused one,
 so hovering a pop-out's row does not bring up the main window's row behind it.
 
@@ -107,8 +111,13 @@ Verified in Obsidian 1.13.7 on Linux with the Klartext theme 2.0.0, by moving
 the real X pointer and reading what paints:
 
 - **Every switch through its own setting.** Each hides its element and brings it
-  back when it is switched off again. The settings tab shows two groups and 14
+  back when it is switched off again. The settings tab shows two groups and 16
   toggles.
+- **The sidebar tab icons:** with either switch on its sidebar's icons go (10
+  and 12 of them in the test vault) while the strip keeps its 40px, its drag
+  region and the sidebar button, and the pane below stays at the same height;
+  the other sidebar keeps its icons, and the panes are still reached by their
+  commands (Search, Bookmarks).
 - **The scopes that were got wrong once:**
   - scroll bars go from 15px to 0 in Obsidian's macOS mode and from 12px to 0 in
     its styled mode, and the wheel still scrolls;
@@ -127,8 +136,9 @@ the real X pointer and reading what paints:
   edge while the main window's row stays as it is, and the reverse; hovering a
   pop-out's top edge where it overlaps the main window's band leaves the main
   row hidden. Its window buttons follow its own row (recorded against a
-  stand-in), a switch reaches its body, disabling the plugin gives its buttons
-  back, and a closed pop-out is forgotten.
+  stand-in), while the main window's stay visible with its row faded or shown,
+  and nothing asks to hide them. A switch reaches its body, disabling the plugin
+  gives its buttons back, and a closed pop-out is forgotten.
 - **The top row:** every state in "The top row on hover", the poll rates in the
   table above, and a pointer that reached the top without any mouse event found
   in 0.73s. With the fading switched off the row stays and the plugin makes no
@@ -141,7 +151,7 @@ Worth checking on a Mac:
 
 1. The buttons sit on the icons' axis with *Align the window buttons* on. The
    32px is calibrated on one Mac.
-2. They disappear and return with the row.
+2. A pop-out's disappear and return with its row; the main window's stay.
 3. The row appears when the pointer arrives over the empty strip, not only over
    a tab or button.
 4. The window drags from the note header with *Hide the tab bar* on.
