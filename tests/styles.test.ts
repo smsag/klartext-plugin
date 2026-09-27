@@ -156,6 +156,17 @@ describe("the sidebar tab icons", () => {
     }
   });
 
+  it("takes the emptied strip's band and rule away, but never its height", () => {
+    // The band's lower edge read as a stray line across the sidebar.
+    for (const [cls] of sides) {
+      const r = one(cls, /background-color:\s*transparent/);
+      expect(r.body).toMatch(/border-bottom-color:\s*transparent/);
+      expect(r.body).not.toMatch(/display|height|border(-bottom)?:\s*(none|0)/);
+      for (const a of r.arms.filter((x) => x.includes(`.${cls}`)))
+        expect(a, a).toMatch(/> \.workspace-tab-header-container$/);
+    }
+  });
+
   it("stays in its own sidebar, on its top strip, on the desktop", () => {
     for (const [cls, split] of sides) {
       for (const r of keyedOn(cls)) {

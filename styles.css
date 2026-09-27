@@ -214,6 +214,23 @@ body.klartext-hide-right-sidebar-tabs:not(.is-mobile) .workspace-split.mod-right
   display: none;
 }
 
+/* An emptied strip keeps its place but not its look. Obsidian and most themes
+   paint the strip as a band of its own (--tab-container-background; Klartext
+   uses --background-secondary) with a rule along its foot. With nothing left
+   on it, the band's lower edge read as a stray line across the sidebar, above
+   the pane. Transparent, the pane's own ground shows through and the strip is
+   just room. The border is made transparent rather than removed, so the strip
+   keeps its height and nothing below it moves. */
+body.klartext-hide-left-sidebar-tabs:not(.is-mobile) .workspace-split.mod-left-split .workspace-tabs.mod-top > .workspace-tab-header-container {
+  background-color: transparent;
+  border-bottom-color: transparent;
+}
+
+body.klartext-hide-right-sidebar-tabs:not(.is-mobile) .workspace-split.mod-right-split .workspace-tabs.mod-top > .workspace-tab-header-container {
+  background-color: transparent;
+  border-bottom-color: transparent;
+}
+
 /* Hover tooltips. The aria-label behind each one is untouched, so what a
    screen reader announces does not change — only what is drawn.
 
