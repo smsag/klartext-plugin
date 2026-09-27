@@ -22,7 +22,7 @@ parts of Obsidian are *there*, and when. No setting lives in both.
 | Hide the vault name | off | the vault profile, **with the settings gear, help button and vault switcher** (desktop only) |
 | Hide scroll bars | off | every scroll bar; scrolling is unaffected |
 | Hide the sidebar buttons | off | both sidebar toggles |
-| Hide the left sidebar's tab icons | off | the pane icons along the top of the left sidebar; the strip stays, so nothing moves and the window buttons keep their room (desktop only) |
+| Hide the left sidebar's tab icons | off | the pane icons along the top of the left sidebar; the strip stays as plain room, without its band or rule, so nothing moves and the window buttons keep their place (desktop only) |
 | Hide the right sidebar's tab icons | off | the same for the right sidebar (desktop only) |
 | Hide tooltips | off | hover tooltips; error messages still show |
 | Hide the file explorer's buttons | off | new note, new folder, sort, collapse |
@@ -115,7 +115,7 @@ the real X pointer and reading what paints:
   toggles.
 - **The sidebar tab icons:** with either switch on its sidebar's icons go (10
   and 12 of them in the test vault) while the strip keeps its 40px, its drag
-  region and the sidebar button, and the pane below stays at the same height;
+  region and the sidebar button, and loses its band and the rule under it, and the pane below stays at the same height;
   the other sidebar keeps its icons, and the panes are still reached by their
   commands (Search, Bookmarks).
 - **The scopes that were got wrong once:**
