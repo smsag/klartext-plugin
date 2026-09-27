@@ -139,3 +139,33 @@ describe("classes Obsidian reuses elsewhere", () => {
     one("klartext-hide-vault-name", /--vault-profile-display:\s*none/);
   });
 });
+
+describe("the sidebar tab icons", () => {
+  const sides = [
+    ["klartext-hide-left-sidebar-tabs", ".mod-left-split"],
+    ["klartext-hide-right-sidebar-tabs", ".mod-right-split"],
+  ] as const;
+
+  it("hides the icons, never the strip: the window buttons, the drag handle and the sidebar button live in it", () => {
+    for (const [cls] of sides) {
+      const r = one(cls, /display:\s*none/);
+      for (const a of r.arms) {
+        expect(a, a).toMatch(/> \.workspace-tab-header-(container-inner|tab-list)$/);
+        expect(a, a).not.toMatch(/\.workspace-tab-header-container$/);
+      }
+    }
+  });
+
+  it("stays in its own sidebar, on its top strip, on the desktop", () => {
+    for (const [cls, split] of sides) {
+      for (const r of keyedOn(cls)) {
+        for (const a of r.arms) {
+          expect(a, a).toContain(split);
+          expect(a, a).not.toContain(".mod-root");
+          expect(a, a).toContain(".mod-top");
+          expect(a, a).toContain(":not(.is-mobile)");
+        }
+      }
+    }
+  });
+});

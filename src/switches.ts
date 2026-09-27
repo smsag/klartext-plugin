@@ -58,6 +58,24 @@ export const HIDE_SWITCHES: readonly Switch[] = [
     desc: "Hides both sidebar buttons. The sidebars still open by hotkey, by the command palette, and by dragging their edge.",
   },
   {
+    key: "hideLeftSidebarTabs",
+    cls: "klartext-hide-left-sidebar-tabs",
+    name: "Hide the left sidebar's tab icons",
+    desc:
+      "Desktop only. Hides the icons along the top of the left sidebar, one per pane (Files, Search, Bookmarks and " +
+      "the rest). The strip itself stays, so nothing below it moves, the window buttons keep their room on macOS " +
+      "and the window still drags from there. Switch panes with their commands, such as “Files: Show file " +
+      "explorer”, from a hotkey or the command palette. A pane stacked lower in the sidebar keeps its icons.",
+  },
+  {
+    key: "hideRightSidebarTabs",
+    cls: "klartext-hide-right-sidebar-tabs",
+    name: "Hide the right sidebar's tab icons",
+    desc:
+      "Desktop only. The same for the right sidebar: its icons go, its strip and the sidebar button stay. Switch " +
+      "panes with their commands, such as “Backlinks: Show backlinks”.",
+  },
+  {
     key: "hideTooltips",
     cls: "klartext-hide-tooltips",
     name: "Hide tooltips",

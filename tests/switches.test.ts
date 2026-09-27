@@ -3,11 +3,11 @@ import { DEFAULT_SETTINGS } from "../src/settings";
 import { ALL_SWITCHES, switchClasses } from "../src/switches";
 
 describe("the furniture switches", () => {
-  it("are twelve, one per setting that is not the top row's own", () => {
+  it("are fourteen, one per setting that is not the top row's own", () => {
     const keys = ALL_SWITCHES.map((s) => s.key).sort();
     const expected = Object.keys(DEFAULT_SETTINGS).filter((k) => k !== "topRowOnHover" && k !== "hideWindowButtons").sort();
     expect(keys).toEqual(expected);
-    expect(keys).toHaveLength(12);
+    expect(keys).toHaveLength(14);
   });
 
   it("are all off by default: nothing disappears until it is switched off by name", () => {

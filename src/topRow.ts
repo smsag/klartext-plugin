@@ -90,6 +90,10 @@ export function nextState(prev: TopRowState, input: TopRowInput): TopRowState {
 /**
  * Whether the macOS window buttons should be visible.
  *
+ * The main window always keeps them: it is the window a person closes,
+ * minimises and fullscreens Obsidian by, and a quiet row is not worth a hunt
+ * for the corner that does it. Only a pop-out's come and go with its row.
+ *
  * With the setting off they are never touched. In fullscreen macOS draws them
  * in its own menu bar and a window cannot hide them there, so they are left to
  * macOS rather than asked for something it will not do.
@@ -104,8 +108,9 @@ export function windowButtonsVisible(
   hideWithRow: boolean,
   fullscreen: boolean,
   frameHidden: boolean,
+  mainWindow: boolean,
 ): boolean {
-  if (!hideWithRow || fullscreen || !frameHidden) return true;
+  if (mainWindow || !hideWithRow || fullscreen || !frameHidden) return true;
   return shown;
 }
 

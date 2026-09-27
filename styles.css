@@ -32,7 +32,7 @@ body.klartext-top-row:not([data-klartext-top-row="hidden"]) .workspace-split.mod
 /* ------------------------------------------------------------------
    OBSIDIAN'S FURNITURE  (each switch off until it is turned on)
 
-   Twelve switches for parts of Obsidian's furniture, each a body class the
+   Fourteen switches for parts of Obsidian's furniture, each a body class the
    plugin sets from its own settings. Nearly all of them are a
    `display: none`. Where Obsidian provides a lever for the job — a token, a
    marker class, its own condition for when the window buttons are there —
@@ -185,6 +185,32 @@ body.klartext-hide-scrollbars {
 
 /* Both sidebar buttons. The sidebars still open by hotkey and command. */
 body.klartext-hide-sidebar-toggles .sidebar-toggle-button {
+  display: none;
+}
+
+/* The icons along the top of a sidebar, one per pane.
+
+   The icons go and the strip stays. On macOS with the frame hidden the left
+   sidebar's strip is where the window buttons sit (Obsidian marks it
+   `mod-top-left-space` and pads it clear of them), the strip is a drag
+   handle, and it carries the sidebar's own collapse button. Hiding the strip
+   would put the window buttons over the sidebar's first row and move every
+   pane up by its height; hiding what is inside leaves all of that where it was.
+
+   `.workspace-tab-header-container-inner` holds the icons, and the tab-list
+   chevron beside it appears when they overflow. Obsidian marks the inner
+   `no-drag` inside a `drag` strip, so with it gone the whole strip drags.
+   Only the sidebar's TOP strip (`mod-top`): a pane stacked lower in the
+   sidebar has no other strip to be switched from and nothing to make room for.
+
+   Desktop only: a phone's sidebars are drawers with a different header. */
+body.klartext-hide-left-sidebar-tabs:not(.is-mobile) .workspace-split.mod-left-split .workspace-tabs.mod-top > .workspace-tab-header-container > .workspace-tab-header-container-inner,
+body.klartext-hide-left-sidebar-tabs:not(.is-mobile) .workspace-split.mod-left-split .workspace-tabs.mod-top > .workspace-tab-header-container > .workspace-tab-header-tab-list {
+  display: none;
+}
+
+body.klartext-hide-right-sidebar-tabs:not(.is-mobile) .workspace-split.mod-right-split .workspace-tabs.mod-top > .workspace-tab-header-container > .workspace-tab-header-container-inner,
+body.klartext-hide-right-sidebar-tabs:not(.is-mobile) .workspace-split.mod-right-split .workspace-tabs.mod-top > .workspace-tab-header-container > .workspace-tab-header-tab-list {
   display: none;
 }
 

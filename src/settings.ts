@@ -7,7 +7,8 @@
 export interface KlartextSettings {
   /** Fade the window's top row until the pointer reaches the top. */
   topRowOnHover: boolean;
-  /** macOS: hide the red/yellow/green window buttons along with the row. */
+  /** macOS: hide a pop-out window's red/yellow/green buttons along with its row.
+   *  The main window keeps its buttons. */
   hideWindowButtons: boolean;
   /** macOS: move the window buttons onto the row's axis. */
   alignWindowButtons: boolean;
@@ -16,6 +17,8 @@ export interface KlartextSettings {
   hideVaultName: boolean;
   hideScrollbars: boolean;
   hideSidebarToggles: boolean;
+  hideLeftSidebarTabs: boolean;
+  hideRightSidebarTabs: boolean;
   hideTooltips: boolean;
   hideExplorerButtons: boolean;
   hideReadingProperties: boolean;
@@ -35,6 +38,8 @@ export const DEFAULT_SETTINGS: KlartextSettings = {
   hideVaultName: false,
   hideScrollbars: false,
   hideSidebarToggles: false,
+  hideLeftSidebarTabs: false,
+  hideRightSidebarTabs: false,
   hideTooltips: false,
   hideExplorerButtons: false,
   hideReadingProperties: false,

@@ -82,21 +82,29 @@ describe("nextState", () => {
 });
 
 describe("windowButtonsVisible", () => {
-  it("follows the row when the setting is on and the frame is hidden", () => {
-    expect(windowButtonsVisible(true, true, false, true)).toBe(true);
-    expect(windowButtonsVisible(false, true, false, true)).toBe(false);
+  // Arguments: shown, hideWithRow, fullscreen, frameHidden, mainWindow.
+  it("follows a pop-out's row when the setting is on and the frame is hidden", () => {
+    expect(windowButtonsVisible(true, true, false, true, false)).toBe(true);
+    expect(windowButtonsVisible(false, true, false, true, false)).toBe(false);
+  });
+
+  it("never hides the main window's buttons, with the row hidden or not", () => {
+    // The main window is the one Obsidian is closed, minimised and
+    // fullscreened by; only a pop-out's buttons follow its row.
+    expect(windowButtonsVisible(false, true, false, true, true)).toBe(true);
+    expect(windowButtonsVisible(true, true, false, true, true)).toBe(true);
   });
 
   it("never hides them when the setting is off", () => {
-    expect(windowButtonsVisible(false, false, false, true)).toBe(true);
+    expect(windowButtonsVisible(false, false, false, true, false)).toBe(true);
   });
 
   it("leaves them to macOS in fullscreen, where a window cannot hide them", () => {
-    expect(windowButtonsVisible(false, true, true, true)).toBe(true);
+    expect(windowButtonsVisible(false, true, true, true, false)).toBe(true);
   });
 
   it("never hides them in a title bar above the page, where no pointer in the band could bring them back", () => {
-    expect(windowButtonsVisible(false, true, false, false)).toBe(true);
+    expect(windowButtonsVisible(false, true, false, false, false)).toBe(true);
   });
 });
 
