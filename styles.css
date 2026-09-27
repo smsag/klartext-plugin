@@ -67,6 +67,19 @@ body.klartext-hide-tab-bar.is-phone .workspace-split.mod-root .workspace-tab-hea
   display: none;
 }
 
+/* The header that takes the strip's place takes its height too. Obsidian
+   declares both as var(--header-height), but the header is a flex item that
+   may shrink beside the note, and it does: measured 38.14px in a 900px window
+   and 37.56px in a 600px one. A sidebar keeps its strip at the full 40, so
+   the first row of every pane under a strip — a search field, a panel's own
+   header — sat 2px higher than the note's find bar, by an amount that moved
+   with the window's height and that no pane could match. Not shrinking puts
+   the header back at the height Obsidian gives it. Only the main area's, and
+   only where the header is shown; a phone's header has its own height. */
+body.klartext-hide-tab-bar.show-view-header:not(.is-phone) .workspace-split.mod-root .workspace-leaf-content > .view-header {
+  flex-shrink: 0;
+}
+
 /* With the strip gone the note header becomes the window's top row, and on
    macOS it has to do the strip's job of clearing the window buttons.
 
