@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-28
+
 ### Fixed
 
 - **No stutter while a window is resized.** The top row used to ask Electron
