@@ -1,0 +1,34 @@
+# The same gate the release runs, on every push and pull request: unit tests,
+# typecheck (sources and tests) and the production build. A release should
+# never be the first run to find a failure.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: manifest.json and package.json carry the same version
+        run: |
+          m="$(node -p "require('./manifest.json').version")"
+          p="$(node -p "require('./package.json').version")"
+          if [ "$m" != "$p" ]; then echo "::error::manifest.json says $m, package.json says $p."; exit 1; fi

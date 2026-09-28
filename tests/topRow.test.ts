@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_HEADER_CSS,
   HIDE_DELAY_MS,
   IDLE_POLL_MS,
   INITIAL,
   NEAR_CSS,
+  RESIZE_SETTLE_MS,
+  bandHeight,
   coveredByFront,
+  isResizing,
   inTopBand,
   nextState,
   shouldPoll,
@@ -109,7 +113,7 @@ describe("windowButtonsVisible", () => {
 });
 
 describe("shouldPoll", () => {
-  const base = { now: 10_000, shown: false, lastPollAt: 0, bandCss: 40 };
+  const base = { now: 10_000, resizing: false, shown: false, lastPollAt: 0, bandCss: 40 };
   const deep = { y: 400, at: 10_000 };
 
   it("asks once after the pointer settles deep in the note, then only at the heartbeat", () => {
@@ -141,6 +145,14 @@ describe("shouldPoll", () => {
     expect(shouldPoll({ ...base, shown: true, pointer: deep, now: 10_050, lastPollAt: 10_000 })).toBe(false);
   });
 
+  it("never asks while the window is being resized, in any state", () => {
+    // Each ask is a synchronous round trip to a main process that is busy
+    // resizing the window: the page would wait, and the text would stutter.
+    expect(shouldPoll({ ...base, resizing: true, shown: true, pointer: deep, now: 20_000, lastPollAt: 0 })).toBe(false);
+    expect(shouldPoll({ ...base, resizing: true, pointer: null, now: 20_000, lastPollAt: 0 })).toBe(false);
+    expect(shouldPoll({ ...base, resizing: true, pointer: { y: 10, at: 19_000 }, now: 20_000, lastPollAt: 0 })).toBe(false);
+  });
+
   it("asks at the slow rate when the pointer is outside the window or not yet seen", () => {
     expect(shouldPoll({ ...base, pointer: null, now: 10_299, lastPollAt: 10_000 })).toBe(false);
     expect(shouldPoll({ ...base, pointer: null, now: 10_300, lastPollAt: 10_000 })).toBe(true);
@@ -164,5 +176,34 @@ describe("coveredByFront", () => {
 
   it("says nothing when there is no window in front", () => {
     expect(coveredByFront({ x: 500, y: 70 }, null)).toBe(false);
+  });
+});
+
+describe("isResizing", () => {
+  it("is true until the window has held still for the settle time", () => {
+    expect(isResizing(1000, 1000)).toBe(true);
+    expect(isResizing(1000 + RESIZE_SETTLE_MS - 1, 1000)).toBe(true);
+    expect(isResizing(1000 + RESIZE_SETTLE_MS, 1000)).toBe(false);
+  });
+
+  it("is false before any resize at all", () => {
+    expect(isResizing(0, Number.NEGATIVE_INFINITY)).toBe(false);
+  });
+});
+
+describe("bandHeight", () => {
+  it("reaches the lowest edge drawn in the top row", () => {
+    expect(bandHeight([40, 81.5, 60], 40)).toBe(81.5);
+  });
+
+  it("is never less than one header, even with nothing drawn", () => {
+    expect(bandHeight([], 40)).toBe(40);
+    expect(bandHeight([12], 40)).toBe(40);
+  });
+
+  it("falls back to Obsidian's default header for an unreadable one, never to zero", () => {
+    expect(bandHeight([], Number.NaN)).toBe(DEFAULT_HEADER_CSS);
+    expect(bandHeight([], 0)).toBe(DEFAULT_HEADER_CSS);
+    expect(bandHeight([Number.NaN, Number.POSITIVE_INFINITY], 40)).toBe(40);
   });
 });

@@ -105,6 +105,27 @@ that reaches the top without producing any mouse event, for example when the
 window moves under a pointer that is standing still. Measured, such a pointer is
 found within 0.7s; without the heartbeat it was never found.
 
+**Nothing is asked while a window is being resized.** A resize keeps Electron's
+main process busy, and each ask waits for it, so asking then made the text
+stutter under a resize that should only reflow it. The plugin skips every ask
+until the window has held still for 250ms, and measures the row's height once,
+after the resize, instead of on every resize event. Measured on Linux over a
+resize burst: 0 asks and 0 measurements during it, one measurement after it,
+and a third less script time than before.
+
+**With the fading off there is no loop at all.** The plugin looks at nothing
+until the setting is switched on again.
+
+## Diagnostics
+
+The command **Klartext: Copy diagnostics** puts a short JSON report on the
+clipboard for a bug report: the plugin and Obsidian versions, the platform
+flags that decide what the plugin does, the settings, each window's row state,
+and counters since the plugin started, among them how many times it asked
+Electron and how often a poll was skipped for a resize. A failure is logged to
+the console once, then only counted, and the count is in the report. Nothing
+from the vault is included.
+
 ## Verified, and not
 
 Verified in Obsidian 1.13.7 on Linux with the Klartext theme 2.0.0, by moving
@@ -141,8 +162,10 @@ the real X pointer and reading what paints:
   gives its buttons back, and a closed pop-out is forgotten.
 - **The top row:** every state in "The top row on hover", the poll rates in the
   table above, and a pointer that reached the top without any mouse event found
-  in 0.73s. With the fading switched off the row stays and the plugin makes no
-  calls at all.
+  in 0.73s. With the fading switched off the row stays, the poll loop stops,
+  and the plugin makes no calls at all; switched on again, the loop resumes.
+- **A resize:** no ask of Electron and no forced layout while it lasts, one
+  measurement of the row once it ends.
 
 **Not verified: anything that happens on macOS itself.** Linux has no window
 buttons, so every call to them was recorded against a stand-in; Linux also
@@ -160,16 +183,20 @@ Worth checking on a Mac:
 
 Copy `main.js`, `manifest.json` and `styles.css` into
 `<vault>/.obsidian/plugins/klartext/`, then enable **Klartext** under
-Settings → Community plugins. The switches work on mobile too; the top row on
+Settings → Community plugins. The settings tab shows only what can act on the
+device it is open on: the macOS switches on a Mac, the desktop ones on a
+desktop. The switches work on mobile too; the top row on
 hover and the window buttons are desktop only, since they need Electron.
 
 ## Development
 
 ```sh
 npm install
-npm run check   # unit tests, then typecheck and build
+npm run check   # unit tests, then typecheck (sources and tests) and build
 npm run dev     # rebuild on change
 ```
+
+CI runs the same check on every push and pull request.
 
 ### Releasing
 

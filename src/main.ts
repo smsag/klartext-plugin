@@ -12,14 +12,16 @@
 // never learn the pointer had arrived — or, once it is showing, that the
 // pointer had left. Electron's own cursor position is not blind there.
 
-import { Notice, Platform, Plugin, PluginSettingTab, Setting, type App } from "obsidian";
+import { Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, type App } from "obsidian";
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
-import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, switchClasses, type Switch } from "./switches";
+import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, availableOn, switchClasses, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
 import {
   INITIAL,
+  bandHeight,
   coveredByFront,
   inTopBand,
+  isResizing,
   nextState,
   shouldPoll,
   windowButtonsVisible,
@@ -66,7 +68,15 @@ interface ElectronModule {
  *  own `require`, and `getCurrentWindow()` there is that window. */
 function electronOf(win: Window): ElectronModule | null {
   const req = (win as unknown as { require?: (id: string) => unknown }).require;
-  return typeof req === "function" ? ((req("electron") as ElectronModule | null) ?? null) : null;
+  if (typeof req !== "function") return null;
+  try {
+    return (req("electron") as ElectronModule | null) ?? null;
+  } catch (e) {
+    // A build without Electron in reach: the top row stays as it is, and the
+    // switches, which are CSS, still load. A throw here used to stop onload.
+    console.warn("[klartext] Electron is not reachable:", e);
+    return null;
+  }
 }
 
 /** The cursor is the screen's, not a window's: one source for every window. */
@@ -87,6 +97,10 @@ class RowWindow {
   appliedButtons: boolean | null = null;
   /** The band's height in CSS px, measured on layout changes rather than per poll. */
   bandCss = 0;
+  /** The layout changed since the band was measured; measured again on the next tick. */
+  bandDirty = true;
+  /** When the last resize event arrived, for isResizing. */
+  lastResizeAt = Number.NEGATIVE_INFINITY;
   /** Where this window's own mouse events last saw the pointer; null when outside it. */
   pointer: PointerSeen | null = null;
   lastPollAt = 0;
@@ -99,14 +113,19 @@ class RowWindow {
     readonly zoom: () => number,
   ) {
     const opts = { signal: this.listeners.signal };
-    win.addEventListener("resize", () => this.measureBand(), opts);
+    // Only noted here. Measuring in the handler read the layout on every
+    // resize event, in the middle of a resize, which is when a forced layout
+    // costs the most; the next tick measures once the window holds still.
+    win.addEventListener("resize", () => {
+      this.lastResizeAt = Date.now();
+      this.bandDirty = true;
+    }, opts);
     win.document.addEventListener("mousemove", (e) => {
       this.pointer = { y: e.clientY, at: Date.now() };
     }, { ...opts, passive: true });
     win.addEventListener("mouseout", (e) => {
       if (e.relatedTarget === null) this.pointer = null; // left the window
     }, opts);
-    this.measureBand();
   }
 
   get body(): HTMLElement {
@@ -115,13 +134,15 @@ class RowWindow {
 
   /** The band covers everything in the top row, and never less than one header. */
   measureBand(): void {
-    let bottom = 0;
+    const bottoms: number[] = [];
     this.win.document.querySelectorAll<HTMLElement>(TOP_ROW).forEach((el) => {
       const r = el.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) bottom = Math.max(bottom, r.bottom);
+      if (r.width > 0 && r.height > 0) bottoms.push(r.bottom);
     });
-    const header = parseFloat(getComputedStyle(this.body).getPropertyValue("--header-height"));
-    this.bandCss = Math.max(bottom, Number.isFinite(header) ? header : 40);
+    // This window's getComputedStyle: a pop-out's body belongs to its own window.
+    const header = parseFloat(this.win.getComputedStyle(this.body).getPropertyValue("--header-height"));
+    this.bandCss = bandHeight(bottoms, header);
+    this.bandDirty = false;
   }
 
   setHidden(hidden: boolean | null): void {
@@ -147,7 +168,7 @@ class RowWindow {
     if (!win || typeof win.setWindowButtonPosition !== "function") return;
     const body = this.body;
     if (!body.hasClass("mod-macos") || !body.hasClass("is-frameless")) return;
-    const style = getComputedStyle(body);
+    const style = this.win.getComputedStyle(body);
     const position = windowButtonPosition(
       parseFloat(style.getPropertyValue("--traffic-lights-offset-x")),
       parseFloat(style.getPropertyValue("--traffic-lights-offset-y")),
@@ -169,25 +190,58 @@ class RowWindow {
   }
 }
 
+/** What the plugin has done since it started, for "Copy diagnostics". */
+interface Counters {
+  ticks: number;
+  /** Asks of Electron for the cursor, each a synchronous round trip. */
+  cursorReads: number;
+  /** Asks of Electron for a window's position, the same kind of round trip. */
+  boundsReads: number;
+  /** Polls skipped because the window was being resized. */
+  skippedWhileResizing: number;
+  bandMeasures: number;
+  errors: number;
+}
+
 export default class KlartextPlugin extends Plugin {
   override settings: KlartextSettings = { ...DEFAULT_SETTINGS };
   private cursor: (() => Point) | null = null;
+  /** Why the top row cannot run here, when it cannot; null when it can. */
+  private unavailable: string | null = null;
   /** The main window and every pop-out, each with its own row. */
   private readonly windows = new Map<Window, RowWindow>();
+  /** The poll loop, running only while the top row fades. */
+  private loop: number | null = null;
+  private readonly counters: Counters = { ticks: 0, cursorReads: 0, boundsReads: 0, skippedWhileResizing: 0, bandMeasures: 0, errors: 0 };
+  private readonly startedAt = Date.now();
+  /** Each distinct failure is logged once, then counted: a poll runs twenty
+   *  times a second, and a console that scrolls the same line is no report. */
+  private readonly reported = new Map<string, number>();
 
   override async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
     this.addSettingTab(new KlartextSettingTab(this.app, this));
     this.applySwitches();
+    this.addCommand({
+      id: "copy-diagnostics",
+      name: "Copy diagnostics",
+      callback: () => void this.copyDiagnostics(),
+    });
 
     // The furniture switches are CSS and work everywhere; the top row and the
     // window buttons need Electron, which only a desktop has.
-    if (!Platform.isDesktopApp) return;
+    if (!Platform.isDesktopApp) {
+      this.unavailable = "not a desktop app";
+      return;
+    }
     const cursor = loadCursor();
     if (typeof cursor === "string") {
-      // Silence would look like a plugin that does nothing; say why instead.
-      new Notice(`Klartext: the top row stays as it is — ${cursor}.`);
-      console.warn(`[klartext] not starting: ${cursor}`);
+      this.unavailable = cursor;
+      console.warn(`[klartext] the top row stays as it is: ${cursor}`);
+      // Silence would look like a plugin that does nothing; say why instead —
+      // but only to someone who asked for the fading. With it off nothing is
+      // missing, and a notice on every start would be noise.
+      if (this.settings.topRowOnHover) new Notice(`Klartext: the top row stays as it is — ${cursor}.`);
       return;
     }
     this.cursor = cursor;
@@ -197,14 +251,14 @@ export default class KlartextPlugin extends Plugin {
       this.app.workspace.iterateAllLeaves((leaf) => this.addWindow(leaf.getContainer().win));
       this.registerEvent(this.app.workspace.on("window-open", (_w, win) => this.addWindow(win)));
       this.registerEvent(this.app.workspace.on("window-close", (_w, win) => this.removeWindow(win)));
-      this.registerEvent(this.app.workspace.on("layout-change", () => this.measureBands()));
-      this.registerEvent(this.app.workspace.on("css-change", () => this.measureBands()));
-      this.registerInterval(window.setInterval(() => this.tick(), TICK_MS));
-      this.tick();
+      this.registerEvent(this.app.workspace.on("layout-change", () => this.invalidateBands()));
+      this.registerEvent(this.app.workspace.on("css-change", () => this.invalidateBands()));
+      this.syncLoop();
     });
   }
 
   override onunload(): void {
+    this.stopLoop();
     for (const row of this.windows.values()) {
       row.dispose();
       row.body.removeClass(ACTIVE_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
@@ -222,12 +276,34 @@ export default class KlartextPlugin extends Plugin {
     for (const row of this.windows.values()) {
       row.placeButtons();
       if (!this.settings.topRowOnHover) {
+        // The row is simply there, and so are the buttons.
         row.setHidden(null);
         row.state = INITIAL;
+        if (row.appliedButtons === false) row.setButtons(true);
+        row.appliedButtons = true;
+      } else {
+        row.appliedButtons = null; // re-applied under the new settings on the next tick
       }
-      row.appliedButtons = null; // re-apply under the new settings on the next poll
-      row.measureBand();
+      row.bandDirty = true;
     }
+    this.syncLoop();
+  }
+
+  /** The loop runs while there is a row to fade, and not otherwise: with the
+   *  fading off, nothing needs looking at twenty times a second. */
+  private syncLoop(): void {
+    const wanted = this.cursor !== null && this.settings.topRowOnHover && this.windows.size > 0;
+    if (wanted && this.loop === null) {
+      this.loop = window.setInterval(() => this.tick(), TICK_MS);
+      this.tick();
+    } else if (!wanted) {
+      this.stopLoop();
+    }
+  }
+
+  private stopLoop(): void {
+    if (this.loop !== null) window.clearInterval(this.loop);
+    this.loop = null;
   }
 
   private addWindow(win: Window): void {
@@ -241,45 +317,73 @@ export default class KlartextPlugin extends Plugin {
     this.windows.set(win, row);
     this.applySwitches();
     row.placeButtons();
+    this.syncLoop();
   }
 
   private removeWindow(win: Window): void {
     this.windows.get(win)?.dispose();
     this.windows.delete(win);
+    this.syncLoop();
   }
 
-  private measureBands(): void {
-    for (const row of this.windows.values()) row.measureBand();
+  private invalidateBands(): void {
+    for (const row of this.windows.values()) row.bandDirty = true;
   }
 
   /** One body class per switch that is on, and none for one that is off, in every window. */
   private applySwitches(): void {
     const on = new Set(switchClasses(this.settings));
-    const bodies = new Set([document.body, ...[...this.windows.values()].map((r) => r.body)]);
+    const bodies = new Set<HTMLElement>([document.body]);
+    for (const row of this.windows.values()) bodies.add(row.body);
     for (const body of bodies) {
       for (const s of ALL_SWITCHES) body.toggleClass(s.cls, on.has(s.cls));
       body.toggleClass(ACTIVE_CLASS, this.settings.topRowOnHover && this.cursor !== null);
     }
   }
 
+  /** Log a failure the first time it happens, and count it every time. */
+  private report(where: string, e: unknown): void {
+    this.counters.errors++;
+    const key = `${where}: ${e instanceof Error ? e.message : String(e)}`;
+    const seen = this.reported.get(key) ?? 0;
+    if (seen === 0) console.warn(`[klartext] ${where} failed; further failures of this kind are counted in "Copy diagnostics":`, e);
+    this.reported.set(key, seen + 1);
+  }
+
   private tick(): void {
-    if (!this.cursor) return;
+    const read = this.cursor;
+    if (!read) return;
+    this.counters.ticks++;
     // One ask of Electron per tick at most, shared by every window that needs it.
     let cursorAt: Point | undefined;
-    const cursor = () => (cursorAt ??= this.cursor!());
+    const cursor = () => {
+      if (cursorAt === undefined) {
+        this.counters.cursorReads++;
+        cursorAt = read();
+      }
+      return cursorAt;
+    };
     // The focused window is the one in front; asked for its bounds only if a
     // window behind it finds the pointer in its band.
-    const focused = [...this.windows.values()].find((r) => r.body.hasClass("is-focused")) ?? null;
+    let focused: RowWindow | null = null;
+    for (const row of this.windows.values()) if (row.body.hasClass("is-focused")) { focused = row; break; }
     let frontAt: Rect | null | undefined;
-    const front = (row: RowWindow) =>
-      focused === null || focused === row || !focused.native ? null : (frontAt ??= focused.native.getContentBounds());
+    const front = (row: RowWindow): Rect | null => {
+      if (focused === null || focused === row || !focused.native) return null;
+      if (frontAt === undefined) {
+        this.counters.boundsReads++;
+        frontAt = focused.native.getContentBounds();
+      }
+      return frontAt;
+    };
     const now = Date.now();
     for (const row of this.windows.values()) {
       try {
         this.tickWindow(row, now, cursor, front);
       } catch (e) {
-        // A window torn down mid-poll; the next tick either works or it has closed.
-        console.debug("[klartext] poll skipped:", e);
+        // A window torn down mid-poll ends here once and is gone by the next
+        // tick; anything that keeps failing shows up in the count.
+        this.report("the poll", e);
       }
     }
   }
@@ -287,22 +391,27 @@ export default class KlartextPlugin extends Plugin {
   private tickWindow(row: RowWindow, now: number, cursor: () => Point, front: (row: RowWindow) => Rect | null): void {
     const doc = row.win.document;
     if (doc.hidden) return;
-    if (!this.settings.topRowOnHover) {
-      // The row is simply there. Give the buttons back if they were hidden.
-      if (row.appliedButtons === false) row.setButtons(true);
-      row.appliedButtons = true;
-      return;
+    const resizing = isResizing(now, row.lastResizeAt);
+    if (row.bandDirty && !resizing) {
+      row.measureBand();
+      this.counters.bandMeasures++;
     }
 
     let inBand = row.lastInBand;
     if (row.pointer !== null && row.pointer.y < row.bandCss) {
       inBand = true; // the page saw it there itself: nothing to ask
-    } else if (row.native && shouldPoll({ now, shown: row.state.shown, pointer: row.pointer, lastPollAt: row.lastPollAt, bandCss: row.bandCss })) {
+    } else if (
+      row.native &&
+      shouldPoll({ now, resizing, shown: row.state.shown, pointer: row.pointer, lastPollAt: row.lastPollAt, bandCss: row.bandCss })
+    ) {
       const at = cursor();
+      this.counters.boundsReads++;
       inBand = inTopBand(at, row.native.getContentBounds(), row.bandCss, row.zoom()) && !coveredByFront(at, front(row));
       row.lastPollAt = now;
-    } else if (row.pointer !== null) {
+    } else if (row.pointer !== null && !resizing) {
       inBand = false; // seen deep in the note, and already confirmed there
+    } else if (resizing) {
+      this.counters.skippedWhileResizing++;
     }
     row.lastInBand = inBand;
 
@@ -310,8 +419,10 @@ export default class KlartextPlugin extends Plugin {
     row.state = nextState(row.state, {
       inBand,
       // instanceOf, not instanceof: a pop-out's elements are its own window's HTMLElement.
-      focusInRow: active !== null && active.instanceOf(HTMLElement) && active.closest(TOP_ROW) !== null,
-      held: row.body.hasClass("is-grabbing") || doc.querySelector(".menu") !== null,
+      focusInRow: active !== null && active !== doc.body && active.instanceOf(HTMLElement) && active.closest(TOP_ROW) !== null,
+      // Obsidian appends an open menu to the body; a child check, not a search
+      // of the whole document twenty times a second.
+      held: row.body.hasClass("is-grabbing") || row.body.querySelector(":scope > .menu") !== null,
       now,
     });
 
@@ -330,6 +441,43 @@ export default class KlartextPlugin extends Plugin {
       row.appliedButtons = buttons;
     }
   }
+
+  /** Everything a bug report needs, on the clipboard: no values from the
+   *  vault, only the plugin's own state and the platform's shape. */
+  private async copyDiagnostics(): Promise<void> {
+    const seconds = Math.max(1, (Date.now() - this.startedAt) / 1000);
+    const perSecond = (n: number) => Math.round((n / seconds) * 10) / 10;
+    const report = {
+      plugin: this.manifest.version,
+      obsidian: apiVersion,
+      platform: {
+        desktop: Platform.isDesktopApp,
+        macOS: Platform.isMacOS,
+        body: [...document.body.classList].filter((c) => /^(mod-|is-(hidden-)?frame|is-fullscreen|theme-)/.test(c)),
+      },
+      topRow: this.unavailable === null ? (this.loop !== null ? "running" : "idle") : `unavailable: ${this.unavailable}`,
+      settings: this.settings,
+      windows: [...this.windows.values()].map((row) => ({
+        main: row.win === window,
+        band: Math.round(row.bandCss),
+        shown: row.state.shown,
+        buttonsVisible: row.appliedButtons,
+        pointerSeen: row.pointer !== null,
+      })),
+      counters: this.counters,
+      perSecond: { cursorReads: perSecond(this.counters.cursorReads), boundsReads: perSecond(this.counters.boundsReads) },
+      failures: Object.fromEntries(this.reported),
+    };
+    const text = JSON.stringify(report, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      new Notice("Klartext: diagnostics copied to the clipboard.");
+    } catch (e) {
+      console.info("[klartext] diagnostics:\n" + text);
+      new Notice("Klartext: the clipboard refused; the diagnostics are in the developer console.");
+      this.report("copying diagnostics", e);
+    }
+  }
 }
 
 class KlartextSettingTab extends PluginSettingTab {
@@ -341,28 +489,34 @@ class KlartextSettingTab extends PluginSettingTab {
     const el = this.containerEl;
     el.empty();
 
+    const here = { desktop: Platform.isDesktopApp, macOS: Platform.isMacOS };
+
     new Setting(el).setName("Top row").setHeading();
-    this.toggle(
-      "Show the top row only on hover",
-      "The tab strip and the note header fade out, and come back when the pointer reaches the top of the window. " +
-        "The note never moves.",
-      "topRowOnHover",
-    );
-    this.toggle(
-      "Hide a pop-out's window buttons with its row",
-      "macOS only, with the window frame set to hidden. In a pop-out window the red, yellow and green buttons " +
-        "appear and disappear together with its top row. The main window always keeps its buttons. With a title " +
-        "bar, and in fullscreen, they are left alone.",
-      "hideWindowButtons",
-    );
-    for (const s of TOP_ROW_SWITCHES) this.switchToggle(s);
+    if (here.desktop) {
+      this.toggle(
+        "Show the top row only on hover",
+        "The tab strip and the note header fade out, and come back when the pointer reaches the top of the window. " +
+          "The note never moves.",
+        "topRowOnHover",
+      );
+    }
+    if (here.macOS && here.desktop) {
+      this.toggle(
+        "Hide a pop-out's window buttons with its row",
+        "macOS only, with the window frame set to hidden. In a pop-out window the red, yellow and green buttons " +
+          "appear and disappear together with its top row. The main window always keeps its buttons. With a title " +
+          "bar, and in fullscreen, they are left alone.",
+        "hideWindowButtons",
+      );
+    }
+    for (const s of TOP_ROW_SWITCHES) this.switchToggle(s, here);
 
     new Setting(el).setName("Hide").setHeading();
-    for (const s of HIDE_SWITCHES) this.switchToggle(s);
+    for (const s of HIDE_SWITCHES) this.switchToggle(s, here);
   }
 
-  private switchToggle(s: Switch): void {
-    this.toggle(s.name, s.desc, s.key);
+  private switchToggle(s: Switch, here: { desktop: boolean; macOS: boolean }): void {
+    if (availableOn(s.only, here)) this.toggle(s.name, s.desc, s.key);
   }
 
   private toggle(name: string, desc: string, key: keyof KlartextSettings): void {
