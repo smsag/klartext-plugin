@@ -116,6 +116,18 @@ and a third less script time than before.
 **With the fading off there is no loop at all.** The plugin looks at nothing
 until the setting is switched on again.
 
+## Not here, on purpose
+
+**The heading level marks** (`#₁`…`#₆` in Live Preview's margin) stay in the
+theme, which can switch them off (Style Settings → Hide Heading Level Marks).
+They are part of the theme's layout rather than a feature of their own: they
+hang in the margin column that gives lists, quotes and callouts their shared
+edge, and hide the typed hashes with a monospace-only trick. Under another
+theme a plugin would have to bring that column along and move that theme's
+text edge. What would make a plugin worth it is behaviour, not looks: a mark
+that folds or changes the level when clicked, or that shows in Reading view.
+That would be built as editor decorations, which work under any theme.
+
 ## Diagnostics
 
 The command **Klartext: Copy diagnostics** puts a short JSON report on the
