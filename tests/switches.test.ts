@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../src/settings";
-import { ALL_SWITCHES, switchClasses } from "../src/switches";
+import { ALL_SWITCHES, availableOn, switchClasses } from "../src/switches";
 
 describe("the furniture switches", () => {
   it("are fourteen, one per setting that is not the top row's own", () => {
@@ -29,5 +29,30 @@ describe("the furniture switches", () => {
     expect(switchClasses({ ...DEFAULT_SETTINGS, hideTabBar: true, hideTooltips: true }).sort()).toEqual(
       ["klartext-hide-tab-bar", "klartext-hide-tooltips"].sort(),
     );
+  });
+});
+
+describe("availableOn", () => {
+  const mac = { desktop: true, macOS: true };
+  const linux = { desktop: true, macOS: false };
+  const phone = { desktop: false, macOS: false };
+
+  it("offers a Mac-only switch on a Mac desktop and nowhere else", () => {
+    expect(availableOn("macos", mac)).toBe(true);
+    expect(availableOn("macos", linux)).toBe(false);
+    expect(availableOn("macos", { desktop: false, macOS: true })).toBe(false); // an iPad reports macOS-like flags
+  });
+
+  it("offers a desktop switch on every desktop, and an unrestricted one everywhere", () => {
+    expect(availableOn("desktop", linux)).toBe(true);
+    expect(availableOn("desktop", phone)).toBe(false);
+    expect(availableOn(undefined, phone)).toBe(true);
+  });
+
+  it("marks the switches that say so in their own description", () => {
+    for (const s of ALL_SWITCHES) {
+      if (/^macOS only/.test(s.desc)) expect(s.only, s.key).toBe("macos");
+      if (/^Desktop only/.test(s.desc)) expect(s.only, s.key).toBe("desktop");
+    }
   });
 });

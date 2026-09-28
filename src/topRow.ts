@@ -139,6 +139,8 @@ export interface PointerSeen {
 
 export interface PollInput {
   now: number;
+  /** The window is being resized: a resize event arrived within RESIZE_SETTLE_MS. */
+  resizing: boolean;
   shown: boolean;
   /** Null until the first mouse event, and after the pointer leaves the window. */
   pointer: PointerSeen | null;
@@ -156,7 +158,24 @@ export const IDLE_POLL_MS = 1000;
  *  event before a drag handle swallows the rest lands just under its edge. */
 export const NEAR_CSS = 48;
 
+/**
+ * How long after the last resize event a window counts as still being resized.
+ *
+ * While a window is resized by hand its main process is busy, and each ask is
+ * a SYNCHRONOUS round trip to that process: the page's thread waits for the
+ * answer, and the text stutters under a resize that should only reflow it.
+ * The answer would not be worth the wait either, because the band itself is
+ * moving. So the plugin does not ask while a resize is under way, and looks
+ * again once the window has held still this long.
+ */
+export const RESIZE_SETTLE_MS = 250;
+
+export function isResizing(now: number, lastResizeAt: number): boolean {
+  return now - lastResizeAt < RESIZE_SETTLE_MS;
+}
+
 export function shouldPoll(i: PollInput): boolean {
+  if (i.resizing) return false;
   const since = i.now - i.lastPollAt;
   if (i.shown) return since >= FAST_POLL_MS;
   if (i.pointer === null) return since >= SLOW_POLL_MS;
@@ -166,3 +185,18 @@ export function shouldPoll(i: PollInput): boolean {
   if (settled && !confirmed) return true;
   return since >= IDLE_POLL_MS;
 }
+
+/**
+ * The band's height in CSS px: down to the lowest bottom edge of anything drawn
+ * in the top row, and never less than one header. `header` is Obsidian's
+ * --header-height as read from the page; when it cannot be read, 40px, which
+ * is Obsidian's default.
+ */
+export function bandHeight(bottoms: readonly number[], header: number): number {
+  let bottom = 0;
+  for (const b of bottoms) if (Number.isFinite(b) && b > bottom) bottom = b;
+  return Math.max(bottom, Number.isFinite(header) && header > 0 ? header : DEFAULT_HEADER_CSS);
+}
+
+/** Obsidian's --header-height when nothing else can be read. */
+export const DEFAULT_HEADER_CSS = 40;

@@ -15,6 +15,24 @@ export interface Switch {
   cls: string;
   name: string;
   desc: string;
+  /** Where the switch can do anything. The settings tab leaves it out
+   *  elsewhere: a toggle that cannot act only raises the question why. */
+  only?: Platform;
+}
+
+/** "macos": a Mac desktop. "desktop": any desktop. */
+export type Platform = "macos" | "desktop";
+
+export interface PlatformFlags {
+  desktop: boolean;
+  macOS: boolean;
+}
+
+/** Whether a switch meant for `only` can act on this platform. */
+export function availableOn(only: Platform | undefined, p: PlatformFlags): boolean {
+  if (only === "macos") return p.desktop && p.macOS;
+  if (only === "desktop") return p.desktop;
+  return true;
 }
 
 /** The window's top row: what is there, and where the window buttons sit. */
@@ -34,6 +52,7 @@ export const TOP_ROW_SWITCHES: readonly Switch[] = [
     key: "alignWindowButtons",
     cls: "klartext-align-window-buttons",
     name: "Align the window buttons with the row",
+    only: "macos",
     desc:
       "macOS only, with the window frame set to hidden. Moves the red, yellow and green buttons onto the axis of " +
       "the icons beside them, through Obsidian's own placement. Nothing else on the page moves.",
@@ -44,6 +63,7 @@ export const HIDE_SWITCHES: readonly Switch[] = [
   { key: "hideStatusBar", cls: "klartext-hide-status-bar", name: "Hide the status bar", desc: "Hides the bar along the bottom: word count, character count, backlink count." },
   {
     key: "hideVaultName",
+    only: "desktop",
     cls: "klartext-hide-vault-name",
     name: "Hide the vault name",
     desc:
@@ -59,6 +79,7 @@ export const HIDE_SWITCHES: readonly Switch[] = [
   },
   {
     key: "hideLeftSidebarTabs",
+    only: "desktop",
     cls: "klartext-hide-left-sidebar-tabs",
     name: "Hide the left sidebar's tab icons",
     desc:
@@ -69,6 +90,7 @@ export const HIDE_SWITCHES: readonly Switch[] = [
   },
   {
     key: "hideRightSidebarTabs",
+    only: "desktop",
     cls: "klartext-hide-right-sidebar-tabs",
     name: "Hide the right sidebar's tab icons",
     desc:
