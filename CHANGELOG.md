@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-09-29
+
 ### Added
 
 - **Hide the note header on the phone.** A switch for the bar at the top of a
