@@ -30,6 +30,7 @@ parts of Obsidian are *there*, and when. No setting lives in both.
 | Hide search suggestions | off | the "Search options" panel of a search field |
 | Hide search match counts | off | the per-file counts in the search pane |
 | Hide prompt instructions | off | the keyboard hints at the foot of every prompt |
+| Hide the note header on the phone | off | the bar at the top of a note on a phone: sidebar button, path, reading-view button, ⋯ menu; the note moves up into its place, other views keep theirs (phone only) |
 
 Several reach further than their names, and their descriptions say what goes
 with them and how to get it back.
@@ -144,7 +145,7 @@ Verified in Obsidian 1.13.7 on Linux with the Klartext theme 2.0.0, by moving
 the real X pointer and reading what paints:
 
 - **Every switch through its own setting.** Each hides its element and brings it
-  back when it is switched off again. The settings tab shows two groups and 16
+  back when it is switched off again. The settings tab shows two groups and 17
   toggles.
 - **The sidebar tab icons:** with either switch on its sidebar's icons go (10
   and 12 of them in the test vault) while the strip keeps its 40px, its drag

@@ -14,7 +14,7 @@
 
 import { Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, type App } from "obsidian";
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
-import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, availableOn, switchClasses, type Switch } from "./switches";
+import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
 import {
   INITIAL,
@@ -489,7 +489,7 @@ class KlartextSettingTab extends PluginSettingTab {
     const el = this.containerEl;
     el.empty();
 
-    const here = { desktop: Platform.isDesktopApp, macOS: Platform.isMacOS };
+    const here = { desktop: Platform.isDesktopApp, macOS: Platform.isMacOS, phone: Platform.isPhone };
 
     new Setting(el).setName("Top row").setHeading();
     if (here.desktop) {
@@ -515,7 +515,7 @@ class KlartextSettingTab extends PluginSettingTab {
     for (const s of HIDE_SWITCHES) this.switchToggle(s, here);
   }
 
-  private switchToggle(s: Switch, here: { desktop: boolean; macOS: boolean }): void {
+  private switchToggle(s: Switch, here: PlatformFlags): void {
     if (availableOn(s.only, here)) this.toggle(s.name, s.desc, s.key);
   }
 
