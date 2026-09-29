@@ -5,6 +5,18 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-09-29
+
+### Added
+
+- **Hide the note header on the phone.** A switch for the bar at the top of a
+  note on a phone: the sidebar button, the path, the reading-view button and the
+  ⋯ menu. The note moves up into its place, through Obsidian's own spacing and
+  fade tokens, so it works with floating navigation and Auto full screen alike.
+  Other views keep their header. Reading view is one command away ("Toggle
+  reading view"), the sidebar one swipe. Shown in the settings tab on a phone
+  only, so it is switched on there.
+
 ## [0.4.0] — 2026-09-28
 
 ### Fixed

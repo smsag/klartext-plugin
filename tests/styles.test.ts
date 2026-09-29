@@ -180,3 +180,26 @@ describe("the sidebar tab icons", () => {
     }
   });
 });
+
+describe("the note header on a phone", () => {
+  it("hides a note's header in the main area on a phone, and nothing else's", () => {
+    // A canvas, a PDF or a plugin view keeps its header: its buttons may be
+    // the only way to that view's actions.
+    const r = one("klartext-hide-phone-header", /display:\s*none/);
+    for (const a of r.arms) {
+      expect(a).toContain(".is-phone");
+      expect(a).toContain(".mod-root");
+      expect(a).toContain('[data-type="markdown"]');
+      expect(a).toContain(".view-header");
+    }
+  });
+
+  it("gives the header's room back through Obsidian's own spacing, not a padding of its own", () => {
+    const r = one("klartext-hide-phone-header", /--view-top-spacing-markdown/);
+    expect(r.body).not.toMatch(/--view-header-height/); // other views keep their header, at its height
+    for (const a of r.arms) {
+      expect(a).toContain(".is-phone");
+      expect(a.includes(".is-floating-nav") || a.includes(".auto-full-screen"), a).toBe(true);
+    }
+  });
+});

@@ -20,18 +20,20 @@ export interface Switch {
   only?: Platform;
 }
 
-/** "macos": a Mac desktop. "desktop": any desktop. */
-export type Platform = "macos" | "desktop";
+/** "macos": a Mac desktop. "desktop": any desktop. "phone": a phone, not a tablet. */
+export type Platform = "macos" | "desktop" | "phone";
 
 export interface PlatformFlags {
   desktop: boolean;
   macOS: boolean;
+  phone: boolean;
 }
 
 /** Whether a switch meant for `only` can act on this platform. */
 export function availableOn(only: Platform | undefined, p: PlatformFlags): boolean {
   if (only === "macos") return p.desktop && p.macOS;
   if (only === "desktop") return p.desktop;
+  if (only === "phone") return p.phone;
   return true;
 }
 
@@ -136,6 +138,18 @@ export const HIDE_SWITCHES: readonly Switch[] = [
     cls: "klartext-hide-prompt-instructions",
     name: "Hide prompt instructions",
     desc: "Hides the keyboard hints along the foot of the quick switcher, the command palette and every other prompt. The shortcuts themselves are unchanged.",
+  },
+  {
+    key: "hidePhoneHeader",
+    cls: "klartext-hide-phone-header",
+    name: "Hide the note header on the phone",
+    only: "phone",
+    desc:
+      "Phone only. Hides the bar at the top of a note: the sidebar button, the folder and file name, the " +
+      "reading-view button and the ⋯ menu. The note moves up into its place. The sidebar still opens with a swipe " +
+      "from the edge. Switch between reading and editing with the command “Toggle reading " +
+      "view”, which the mobile toolbar can carry, and reach the note's menu from the command palette. Other views, " +
+      "such as a canvas or a PDF, keep their header. Set this on the phone itself: the tab shows it only there.",
   },
 ];
 

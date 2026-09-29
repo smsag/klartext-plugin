@@ -25,6 +25,8 @@ export interface KlartextSettings {
   hideSearchSuggestions: boolean;
   hideSearchCounts: boolean;
   hidePromptInstructions: boolean;
+  /** Phone: the note header (path, reading-view button, ⋯ menu). */
+  hidePhoneHeader: boolean;
 }
 
 /** Installing the plugin is the choice of a quiet top row, so that part is on;
@@ -46,6 +48,7 @@ export const DEFAULT_SETTINGS: KlartextSettings = {
   hideSearchSuggestions: false,
   hideSearchCounts: false,
   hidePromptInstructions: false,
+  hidePhoneHeader: false,
 };
 
 export function normalizeSettings(raw: unknown): KlartextSettings {

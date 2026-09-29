@@ -32,7 +32,7 @@ body.klartext-top-row:not([data-klartext-top-row="hidden"]) .workspace-split.mod
 /* ------------------------------------------------------------------
    OBSIDIAN'S FURNITURE  (each switch off until it is turned on)
 
-   Fourteen switches for parts of Obsidian's furniture, each a body class the
+   Fifteen switches for parts of Obsidian's furniture, each a body class the
    plugin sets from its own settings. Nearly all of them are a
    `display: none`. Where Obsidian provides a lever for the job — a token, a
    marker class, its own condition for when the window buttons are there —
@@ -284,6 +284,30 @@ body.klartext-hide-search-counts .workspace-leaf-content[data-type="search"] .se
    the other would read as a bug. The shortcuts themselves are untouched. */
 body.klartext-hide-prompt-instructions .prompt-instructions {
   display: none;
+}
+
+/* The note header on a phone: the sidebar button, the path, the reading-view
+   button and the ⋯ menu. Only a note's (`data-type="markdown"`), only in the main area: a
+   canvas, a PDF or a plugin's view keeps its header, whose buttons may be the
+   only way to its actions.
+
+   With Obsidian's floating navigation, or its Auto full screen, the header
+   floats over the note and the note is pushed down clear of it through
+   --view-top-spacing-markdown (safe area + header height + 16px) and faded
+   under it through --view-top-fade-mask. Both levers are Obsidian's and both
+   are read only by markdown views, so they are restated without the header:
+   the note moves up into the header's place, and the fade is the one
+   Obsidian itself uses while Auto full screen has the header hidden. Without
+   floating navigation the header sits in the flow, and hiding it is all it
+   takes. Measured in Obsidian 1.13.7's phone emulation. */
+body.klartext-hide-phone-header.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] > .view-header {
+  display: none;
+}
+
+body.klartext-hide-phone-header.is-phone.is-floating-nav,
+body.klartext-hide-phone-header.is-phone.auto-full-screen {
+  --view-top-spacing-markdown: calc(var(--safe-area-inset-top) + 16px);
+  --view-top-fade-mask: linear-gradient(to bottom, rgba(0, 0, 0, var(--view-top-fade-opacity)) 0%, #000000 var(--safe-area-inset-top));
 }
 
 /* The macOS window buttons, on the row's axis.
