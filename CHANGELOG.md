@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.4.3] — 2026-09-30
+
 ### Fixed
 
 - **A window in front of a focused pop-out gets its row back.** The plugin
