@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-09-30
+
 ### Fixed
 
 - **No stutter while a pop-out window is resized.** The window being resized
