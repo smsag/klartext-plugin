@@ -5,6 +5,18 @@ generated notes.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A window in front of a focused pop-out gets its row back.** The plugin
+  takes the focused window to be the one in front, and lets it claim the
+  pointer wherever its rectangle covers. macOS keeps a window in front without
+  the focus, and a screen-filling pop-out (New doc) behind the main window then
+  covered the main window's whole top band: hovering brought nothing back, and
+  with the tab bar hidden nothing else closed the tab. The windows' own mouse
+  events now decide: the window that saw the pointer more recently is the one
+  it is over. Verified in the harness with a focused, screen-filling pop-out
+  behind the main window.
+
 ## [0.4.2] — 2026-09-30
 
 ### Fixed
