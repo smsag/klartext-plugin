@@ -5,6 +5,20 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.4.4] — 2026-09-30
+
+### Fixed
+
+- **A pop-out floating over the focused main window gets its row back.** The
+  focused window's rectangle claims the pointer; with the main window focused
+  and a pop-out floating over it, the main window covered the pop-out's whole
+  band, and a pointer entering the pop-out's header straight from outside left
+  no event in either window to say otherwise. Its header stayed hidden, and
+  because a pop-out's window buttons hide with its row, nothing on it could
+  close it. A pop-out's row is now never held back by another window; only
+  the main window's yields, with 0.4.3's tie-break. Verified in the harness
+  in the reported state and in the original one it protects.
+
 ## [0.4.3] — 2026-09-30
 
 ### Fixed

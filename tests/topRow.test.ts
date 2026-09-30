@@ -165,18 +165,18 @@ describe("coveredByFront", () => {
   const popout = { x: 128, y: 50, width: 1024, height: 800 };
 
   it("gives the pointer to the focused window wherever that window covers it", () => {
-    expect(coveredByFront({ x: 500, y: 70 }, popout)).toBe(true);
-    expect(coveredByFront({ x: 128, y: 50 }, popout)).toBe(true); // its top-left corner
+    expect(coveredByFront(true, { x: 500, y: 70 }, popout)).toBe(true);
+    expect(coveredByFront(true, { x: 128, y: 50 }, popout)).toBe(true); // its top-left corner
   });
 
   it("leaves the pointer to the window behind where the front window does not reach", () => {
-    expect(coveredByFront({ x: 1500, y: 20 }, popout)).toBe(false); // right of it
-    expect(coveredByFront({ x: 500, y: 49 }, popout)).toBe(false); // just above it
-    expect(coveredByFront({ x: 1152, y: 70 }, popout)).toBe(false); // its right edge is exclusive
+    expect(coveredByFront(true, { x: 1500, y: 20 }, popout)).toBe(false); // right of it
+    expect(coveredByFront(true, { x: 500, y: 49 }, popout)).toBe(false); // just above it
+    expect(coveredByFront(true, { x: 1152, y: 70 }, popout)).toBe(false); // its right edge is exclusive
   });
 
   it("says nothing when there is no window in front", () => {
-    expect(coveredByFront({ x: 500, y: 70 }, null)).toBe(false);
+    expect(coveredByFront(true, { x: 500, y: 70 }, null)).toBe(false);
   });
 
   it("lets the window that saw the pointer last keep it: focus is not always the front", () => {
@@ -184,12 +184,22 @@ describe("coveredByFront", () => {
     // pop-out; its row could not be brought back, and with the tab bar hidden
     // nothing else closed its tab.
     const at = { x: 500, y: 70 };
-    expect(coveredByFront(at, popout, 1000, 900)).toBe(false); // this window saw it after the front did
-    expect(coveredByFront(at, popout, 1000, null)).toBe(false); // the front never saw it
-    expect(coveredByFront(at, popout, 900, 1000)).toBe(true); // the front saw it last: it is over the front
-    expect(coveredByFront(at, popout, 900, 900)).toBe(true); // a tie goes to the front, as before
-    expect(coveredByFront(at, popout, null, null)).toBe(true); // nobody saw it: as before
-    expect(coveredByFront({ x: 1500, y: 20 }, popout, null, 1000)).toBe(false); // outside the front: never covered
+    expect(coveredByFront(true, at, popout, 1000, 900)).toBe(false); // this window saw it after the front did
+    expect(coveredByFront(true, at, popout, 1000, null)).toBe(false); // the front never saw it
+    expect(coveredByFront(true, at, popout, 900, 1000)).toBe(true); // the front saw it last: it is over the front
+    expect(coveredByFront(true, at, popout, 900, 900)).toBe(true); // a tie goes to the front, as before
+    expect(coveredByFront(true, at, popout, null, null)).toBe(true); // nobody saw it: as before
+    expect(coveredByFront(true, { x: 1500, y: 20 }, popout, null, 1000)).toBe(false); // outside the front: never covered
+  });
+
+  it("never holds back a pop-out: with the main window focused and the pop-out floating over it, nothing else could reach its header", () => {
+    // The main window's rectangle covers the pop-out's whole band, and a
+    // pointer entering the pop-out's header from outside leaves no event
+    // anywhere. Its window buttons hide with its row, so a held-back row
+    // strands the pop-out; a header shown by mistake costs a glance.
+    const mainRect = { x: 0, y: 0, width: 1700, height: 880 };
+    expect(coveredByFront(false, { x: 600, y: 140 }, mainRect, null, null)).toBe(false);
+    expect(coveredByFront(false, { x: 600, y: 140 }, mainRect, 900, 1000)).toBe(false);
   });
 });
 

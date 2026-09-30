@@ -418,7 +418,7 @@ export default class KlartextPlugin extends Plugin {
       this.counters.boundsReads++;
       inBand =
         inTopBand(at, row.native.getContentBounds(), row.bandCss, row.zoom()) &&
-        !coveredByFront(at, front(row), row.pointer?.at ?? null, frontSeen());
+        !coveredByFront(row.win === window, at, front(row), row.pointer?.at ?? null, frontSeen());
       row.lastPollAt = now;
     } else if (row.pointer !== null && !resizing) {
       inBand = false; // seen deep in the note, and already confirmed there

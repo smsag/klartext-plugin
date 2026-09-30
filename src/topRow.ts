@@ -76,14 +76,23 @@ export function inTopBand(pointer: Point, content: Rect, bandCss: number, zoom: 
  * own mouse events decide the tie: the window that saw the pointer more
  * recently is the one it is over. `seenHere` and `seenFront` are when each
  * window last saw a mouse event, null for never or since it left.
+ *
+ * And only the MAIN window yields at all. A pop-out is the smaller, newer
+ * window and nearly always the one on top; when the main window holds the
+ * focus and the pop-out floats over it, the main window's rectangle covers
+ * the pop-out's whole band, and a pointer that enters the pop-out's header
+ * straight from outside leaves no event in either window to break the tie.
+ * A pop-out's header shown by mistake costs a glance; one held back strands
+ * the pop-out, because its window buttons hide with its row.
  */
 export function coveredByFront(
+  mainWindow: boolean,
   pointer: Point,
   front: Rect | null,
   seenHere: number | null = null,
   seenFront: number | null = null,
 ): boolean {
-  if (front === null) return false;
+  if (!mainWindow || front === null) return false;
   const inside =
     pointer.x >= front.x &&
     pointer.x < front.x + front.width &&
