@@ -174,6 +174,17 @@ export function isResizing(now: number, lastResizeAt: number): boolean {
   return now - lastResizeAt < RESIZE_SETTLE_MS;
 }
 
+/**
+ * Whether ANY window is being resized. Every window of the app shares one
+ * page thread and one main process, so an ask made for the main window while
+ * a pop-out is being dragged waits on the same busy process and stalls the
+ * pop-out's frame. While one window resizes, none is asked about.
+ */
+export function anyResizing(now: number, lastResizeAts: Iterable<number>): boolean {
+  for (const at of lastResizeAts) if (isResizing(now, at)) return true;
+  return false;
+}
+
 export function shouldPoll(i: PollInput): boolean {
   if (i.resizing) return false;
   const since = i.now - i.lastPollAt;

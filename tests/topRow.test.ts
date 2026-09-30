@@ -6,6 +6,7 @@ import {
   INITIAL,
   NEAR_CSS,
   RESIZE_SETTLE_MS,
+  anyResizing,
   bandHeight,
   coveredByFront,
   isResizing,
@@ -188,6 +189,13 @@ describe("isResizing", () => {
 
   it("is false before any resize at all", () => {
     expect(isResizing(0, Number.NEGATIVE_INFINITY)).toBe(false);
+  });
+
+  it("holds every window while any one of them resizes: they share the process the asks wait on", () => {
+    const never = Number.NEGATIVE_INFINITY;
+    expect(anyResizing(1000, [never, 900])).toBe(true); // a pop-out being dragged
+    expect(anyResizing(1000, [never, 1000 - RESIZE_SETTLE_MS])).toBe(false);
+    expect(anyResizing(1000, [])).toBe(false);
   });
 });
 

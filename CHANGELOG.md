@@ -5,6 +5,17 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-09-30
+
+### Fixed
+
+- **No stutter while a pop-out window is resized.** The window being resized
+  already held its asks of Electron (0.4.0), but the other windows kept
+  asking, the main window among them: every window shares one page thread
+  and one main process, and the main process is the one busy with the resize,
+  so each ask stalled the pop-out's frame too. Measured: 8 asks during a 1.4 s
+  pop-out resize. While any window resizes, no window is asked about.
+
 ## [0.4.1] — 2026-09-29
 
 ### Added
