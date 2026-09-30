@@ -376,13 +376,14 @@ export default class KlartextPlugin extends Plugin {
       }
       return frontAt;
     };
+    const frontSeen = (): number | null => focused?.pointer?.at ?? null;
     const now = Date.now();
     // One window being resized holds every ask: the main process answering
     // them is the one busy with the resize, and every window waits on it.
     const resizing = anyResizing(now, [...this.windows.values()].map((r) => r.lastResizeAt));
     for (const row of this.windows.values()) {
       try {
-        this.tickWindow(row, now, cursor, front, resizing);
+        this.tickWindow(row, now, cursor, front, frontSeen, resizing);
       } catch (e) {
         // A window torn down mid-poll ends here once and is gone by the next
         // tick; anything that keeps failing shows up in the count.
@@ -396,6 +397,7 @@ export default class KlartextPlugin extends Plugin {
     now: number,
     cursor: () => Point,
     front: (row: RowWindow) => Rect | null,
+    frontSeen: () => number | null,
     resizing: boolean,
   ): void {
     const doc = row.win.document;
@@ -414,7 +416,9 @@ export default class KlartextPlugin extends Plugin {
     ) {
       const at = cursor();
       this.counters.boundsReads++;
-      inBand = inTopBand(at, row.native.getContentBounds(), row.bandCss, row.zoom()) && !coveredByFront(at, front(row));
+      inBand =
+        inTopBand(at, row.native.getContentBounds(), row.bandCss, row.zoom()) &&
+        !coveredByFront(at, front(row), row.pointer?.at ?? null, frontSeen());
       row.lastPollAt = now;
     } else if (row.pointer !== null && !resizing) {
       inBand = false; // seen deep in the note, and already confirmed there

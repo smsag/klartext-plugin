@@ -64,18 +64,34 @@ export function inTopBand(pointer: Point, content: Rect, bandCss: number, zoom: 
  * the pointer at the pop-out's top edge can also sit inside the band of the
  * main window behind it, which would bring up that window's row, and on macOS
  * its window buttons beside the pop-out. Electron reports no stacking order;
- * the focused window is the one in front, so the pointer belongs to it
- * wherever it covers. `front` is null when this window is the focused one, or
- * when no window of the app is focused and nothing can be said.
+ * the focused window is taken to be the one in front, so the pointer belongs
+ * to it wherever it covers. `front` is null when this window is the focused
+ * one, or when no window of the app is focused and nothing can be said.
+ *
+ * Taken to be, not known to be: macOS keeps a window in front without giving
+ * it the focus, and then the focused window's rectangle covers a band the
+ * pointer is really over. Measured with a screen-filling pop-out focused
+ * behind the main window: the main window's row could not be brought back,
+ * and with the tab bar hidden nothing else closes its tab. So the windows'
+ * own mouse events decide the tie: the window that saw the pointer more
+ * recently is the one it is over. `seenHere` and `seenFront` are when each
+ * window last saw a mouse event, null for never or since it left.
  */
-export function coveredByFront(pointer: Point, front: Rect | null): boolean {
-  return (
-    front !== null &&
+export function coveredByFront(
+  pointer: Point,
+  front: Rect | null,
+  seenHere: number | null = null,
+  seenFront: number | null = null,
+): boolean {
+  if (front === null) return false;
+  const inside =
     pointer.x >= front.x &&
     pointer.x < front.x + front.width &&
     pointer.y >= front.y &&
-    pointer.y < front.y + front.height
-  );
+    pointer.y < front.y + front.height;
+  if (!inside) return false;
+  if (seenHere === null) return true;
+  return seenFront !== null && seenFront >= seenHere;
 }
 
 export function nextState(prev: TopRowState, input: TopRowInput): TopRowState {

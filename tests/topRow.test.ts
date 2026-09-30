@@ -178,6 +178,19 @@ describe("coveredByFront", () => {
   it("says nothing when there is no window in front", () => {
     expect(coveredByFront({ x: 500, y: 70 }, null)).toBe(false);
   });
+
+  it("lets the window that saw the pointer last keep it: focus is not always the front", () => {
+    // macOS kept the main window in front of a screen-filling, focused
+    // pop-out; its row could not be brought back, and with the tab bar hidden
+    // nothing else closed its tab.
+    const at = { x: 500, y: 70 };
+    expect(coveredByFront(at, popout, 1000, 900)).toBe(false); // this window saw it after the front did
+    expect(coveredByFront(at, popout, 1000, null)).toBe(false); // the front never saw it
+    expect(coveredByFront(at, popout, 900, 1000)).toBe(true); // the front saw it last: it is over the front
+    expect(coveredByFront(at, popout, 900, 900)).toBe(true); // a tie goes to the front, as before
+    expect(coveredByFront(at, popout, null, null)).toBe(true); // nobody saw it: as before
+    expect(coveredByFront({ x: 1500, y: 20 }, popout, null, 1000)).toBe(false); // outside the front: never covered
+  });
 });
 
 describe("isResizing", () => {
