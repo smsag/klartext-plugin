@@ -18,10 +18,10 @@ import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, availableOn, switchClass
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
 import {
   INITIAL,
+  anyResizing,
   bandHeight,
   coveredByFront,
   inTopBand,
-  isResizing,
   nextState,
   shouldPoll,
   windowButtonsVisible,
@@ -377,9 +377,12 @@ export default class KlartextPlugin extends Plugin {
       return frontAt;
     };
     const now = Date.now();
+    // One window being resized holds every ask: the main process answering
+    // them is the one busy with the resize, and every window waits on it.
+    const resizing = anyResizing(now, [...this.windows.values()].map((r) => r.lastResizeAt));
     for (const row of this.windows.values()) {
       try {
-        this.tickWindow(row, now, cursor, front);
+        this.tickWindow(row, now, cursor, front, resizing);
       } catch (e) {
         // A window torn down mid-poll ends here once and is gone by the next
         // tick; anything that keeps failing shows up in the count.
@@ -388,10 +391,15 @@ export default class KlartextPlugin extends Plugin {
     }
   }
 
-  private tickWindow(row: RowWindow, now: number, cursor: () => Point, front: (row: RowWindow) => Rect | null): void {
+  private tickWindow(
+    row: RowWindow,
+    now: number,
+    cursor: () => Point,
+    front: (row: RowWindow) => Rect | null,
+    resizing: boolean,
+  ): void {
     const doc = row.win.document;
     if (doc.hidden) return;
-    const resizing = isResizing(now, row.lastResizeAt);
     if (row.bandDirty && !resizing) {
       row.measureBand();
       this.counters.bandMeasures++;
