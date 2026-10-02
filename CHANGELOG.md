@@ -5,6 +5,16 @@ generated notes.
 
 ## [Unreleased]
 
+### Changed
+
+- **A base flows up under the status bar while its toolbar is away**, and
+  fades there, as a note does. With Obsidian's floating navigation or Auto
+  full screen, the band Obsidian keeps above a base (the clock, and the bar
+  while it is shown) stayed blank once the toolbar had slid away; the rows
+  now run up into it under Obsidian's own fade, to the foot of the bar while
+  it is there and to the foot of the safe area once it is hidden. The band
+  comes back with the toolbar.
+
 ## [0.5.0] — 2026-10-02
 
 ### Added
