@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-02
+
 ### Added
 
 - **A base's toolbar steps aside while you scroll on the phone** (Hide a base's
