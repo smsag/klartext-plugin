@@ -16,7 +16,7 @@ import { Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, type A
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
 import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
-import { TOOLBAR_UNSEEN, nextToolbar, type ToolbarScroll } from "./baseToolbar";
+import { SETTLE_AFTER_MS, TOOLBAR_UNSEEN, followScroll, settleOffset, type ToolbarScroll } from "./baseToolbar";
 import {
   INITIAL,
   anyResizing,
@@ -43,9 +43,20 @@ const ACTIVE_CLASS = "klartext-top-row";
  */
 const STATE_ATTR = "data-klartext-top-row";
 
-/** On a base's leaf while its toolbar has slid away. Per leaf, so two bases
- *  side by side each keep their own. */
-const BASE_TOOLBAR_ATTR = "data-klartext-base-toolbar";
+/** On a base's leaf while a half-way toolbar settles: styles.css animates the
+ *  last stretch, which a finger no longer drives. */
+const SETTLING_CLASS = "klartext-base-toolbar-settling";
+
+/** A base leaf's toolbar, as the plugin moves it. */
+interface BaseToolbar {
+  leaf: HTMLElement;
+  /** The scroller the state was measured on: the leaf outlives it (another
+   *  view, another file, a re-render), and a new one starts unseen. */
+  scroller: HTMLElement;
+  header: HTMLElement;
+  state: ToolbarScroll;
+  settle: number | null;
+}
 
 /** The window's top row: the root split's tab strip and the headers of its
  *  top panes. A stacked pane further down carries no `mod-top`. */
@@ -206,7 +217,7 @@ interface Counters {
   skippedWhileResizing: number;
   bandMeasures: number;
   errors: number;
-  /** Times a base's toolbar slid away or came back. */
+  /** Times a base's toolbar arrived all gone or all there again. */
   baseToolbarChanges: number;
   /** Scroll events from inside a base that were not its own scroller. A
    *  number that grows while baseToolbarChanges stays 0 means Obsidian now
@@ -228,10 +239,9 @@ export default class KlartextPlugin extends Plugin {
   /** Each distinct failure is logged once, then counted: a poll runs twenty
    *  times a second, and a console that scrolls the same line is no report. */
   private readonly reported = new Map<string, number>();
-  /** Each base leaf's toolbar, and the scroller that state belongs to: the
-   *  leaf outlives its scroller (another view, another file, a re-render),
-   *  and a new scroller starts unseen. */
-  private toolbars = new WeakMap<HTMLElement, { scroller: HTMLElement; state: ToolbarScroll }>();
+  /** Each base leaf's toolbar while it is being moved. Emptied on every
+   *  layout change, which is also when a leaf closes. */
+  private readonly toolbars = new Map<HTMLElement, BaseToolbar>();
   /** The capture-phase scroll listener, present only while the switch is on. */
   private baseScrollListener: ((e: Event) => void) | null = null;
 
@@ -311,7 +321,7 @@ export default class KlartextPlugin extends Plugin {
     }
   }
 
-  /** A base's own scroller moved: does its toolbar step aside or come back? */
+  /** A base's own scroller moved: the toolbar follows it. */
   private onBaseScroll(e: Event): void {
     const view = e.target as HTMLElement | null;
     if (typeof view?.closest !== "function") return;
@@ -319,26 +329,75 @@ export default class KlartextPlugin extends Plugin {
     // one embedded in a note (which scrolls with the note) are left alone.
     const leaf = view.closest<HTMLElement>('.workspace-split.mod-root .workspace-leaf-content[data-type="bases"]');
     if (leaf === null) return;
-    if (!view.classList.contains("bases-view") || view.parentElement?.parentElement !== leaf) {
+    const header = leaf.querySelector<HTMLElement>(":scope > .view-content > .bases-header");
+    if (!view.classList.contains("bases-view") || view.parentElement?.parentElement !== leaf || header === null) {
       this.counters.baseScrollsIgnored++;
       return;
     }
-    const seen = this.toolbars.get(leaf);
-    const before = seen?.scroller === view ? seen.state : TOOLBAR_UNSEEN;
-    const after = nextToolbar(before, view.scrollTop, view.scrollHeight - view.clientHeight);
-    this.toolbars.set(leaf, { scroller: view, state: after });
-    // Written from the state, not from the change, so a leaf whose scroller
-    // was replaced mid-scroll cannot keep a stale "hidden".
-    if (leaf.hasAttribute(BASE_TOOLBAR_ATTR) === after.hidden) return;
-    if (after.hidden) leaf.setAttribute(BASE_TOOLBAR_ATTR, "hidden");
-    else leaf.removeAttribute(BASE_TOOLBAR_ATTR);
-    this.counters.baseToolbarChanges++;
+    let toolbar = this.toolbars.get(leaf);
+    if (toolbar === undefined || toolbar.scroller !== view || toolbar.header !== header) {
+      if (toolbar !== undefined) this.resetToolbar(toolbar);
+      toolbar = { leaf, scroller: view, header, state: TOOLBAR_UNSEEN, settle: null };
+      this.toolbars.set(leaf, toolbar);
+    }
+    const height = header.offsetHeight;
+    const band = header.offsetTop;
+    const before = toolbar.state.offset;
+    // While the base's search row is open the toolbar stays: the row sits
+    // directly under it and would be left hanging.
+    toolbar.state = searchOpen(leaf)
+      ? { top: view.scrollTop, offset: 0 }
+      : followScroll(toolbar.state, view.scrollTop, view.scrollHeight - view.clientHeight, height);
+    leaf.removeClass(SETTLING_CLASS);
+    this.placeToolbar(toolbar, height, band, before);
+    if (toolbar.settle !== null) window.clearTimeout(toolbar.settle);
+    const settling = toolbar;
+    toolbar.settle = window.setTimeout(() => this.settleToolbar(settling), SETTLE_AFTER_MS);
+  }
+
+  /** Scrolling stopped: a half-way toolbar goes to the nearer end. */
+  private settleToolbar(toolbar: BaseToolbar): void {
+    toolbar.settle = null;
+    if (this.toolbars.get(toolbar.leaf) !== toolbar || !toolbar.header.isConnected) return;
+    const height = toolbar.header.offsetHeight;
+    const band = toolbar.header.offsetTop;
+    const to = settleOffset(toolbar.state, height);
+    if (to === toolbar.state.offset) return;
+    const before = toolbar.state.offset;
+    toolbar.state = { ...toolbar.state, offset: to };
+    toolbar.leaf.addClass(SETTLING_CLASS);
+    this.placeToolbar(toolbar, height, band, before);
+  }
+
+  /** The toolbar at its offset, and a table's sticky header just under it.
+   *  Inline on the two elements, never a variable on the leaf: a custom
+   *  property is inherited, and changing one restyles the whole base on
+   *  every frame of a scroll. */
+  private placeToolbar(toolbar: BaseToolbar, height: number, band: number, before: number): void {
+    const { offset } = toolbar.state;
+    const style = toolbar.header.style;
+    style.transform = offset > 0 ? `translateY(${-offset}px)` : "";
+    style.opacity = offset > 0 ? String(Math.max(0, 1 - offset / height)) : "";
+    style.visibility = offset >= height ? "hidden" : "";
+    const thead = toolbar.scroller.querySelector<HTMLElement>(".bases-thead");
+    if (thead !== null) thead.style.top = offset > 0 ? `${band + height - offset}px` : "";
+    const end = (o: number) => (o <= 0 ? "there" : o >= height ? "gone" : null);
+    if (end(offset) !== null && end(offset) !== end(before)) this.counters.baseToolbarChanges++;
+  }
+
+  private resetToolbar(toolbar: BaseToolbar): void {
+    if (toolbar.settle !== null) window.clearTimeout(toolbar.settle);
+    toolbar.leaf.removeClass(SETTLING_CLASS);
+    const style = toolbar.header.style;
+    style.transform = style.opacity = style.visibility = "";
+    const thead = toolbar.scroller.querySelector<HTMLElement>(".bases-thead");
+    if (thead !== null) thead.style.top = "";
   }
 
   /** Every toolbar back, as on a plugin that never ran. */
   private releaseBaseToolbars(): void {
-    document.querySelectorAll(`[${BASE_TOOLBAR_ATTR}]`).forEach((el) => el.removeAttribute(BASE_TOOLBAR_ATTR));
-    this.toolbars = new WeakMap();
+    for (const toolbar of this.toolbars.values()) this.resetToolbar(toolbar);
+    this.toolbars.clear();
   }
 
   async saveSettings(): Promise<void> {
@@ -565,6 +624,13 @@ export default class KlartextPlugin extends Plugin {
       this.report("copying diagnostics", e);
     }
   }
+}
+
+/** Whether a base's own search row is open. Obsidian hides it with an
+ *  inline display: none, which styles.css keys on as well. */
+function searchOpen(leaf: HTMLElement): boolean {
+  const row = leaf.querySelector<HTMLElement>(":scope > .view-content > .bases-search-row");
+  return row !== null && row.style.display !== "none";
 }
 
 class KlartextSettingTab extends PluginSettingTab {

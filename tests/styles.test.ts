@@ -227,30 +227,53 @@ describe("the header on a phone", () => {
 });
 
 describe("a base's toolbar while scrolling", () => {
-  it("moves only a leaf's own base, marked by the plugin, and never one embedded in a note", () => {
-    const r = one("klartext-hide-base-toolbar", /margin-top:\s*calc/);
-    for (const a of r.arms) {
-      expect(a).toContain('[data-type="bases"][data-klartext-base-toolbar="hidden"] > .view-content > .bases-header');
-      expect(a).toContain(".is-phone");
-    }
-    expect(r.body).toMatch(/var\(--bases-header-height\)/);
-    expect(r.body).toMatch(/pointer-events:\s*none/);
-  });
+  const toolbarRules = keyedOn("klartext-hide-base-toolbar");
 
-  it("lets the base flow under the status bar only while the toolbar is away, and only under floating navigation", () => {
-    const flow = keyedOn("klartext-hide-base-toolbar").filter((r) => /--view-top-spacing:\s*0|mask-image/.test(r.body));
-    expect(flow.some((r) => /--view-top-spacing:\s*0/.test(r.body))).toBe(true);
-    expect(flow.some((r) => /mask-image/.test(r.body))).toBe(true);
-    for (const r of flow) {
+  it("acts only on a leaf's own base in the main area, on a phone", () => {
+    expect(toolbarRules.length).toBeGreaterThan(0);
+    for (const r of toolbarRules) {
       for (const a of r.arms) {
-        expect(a).toContain('[data-klartext-base-toolbar="hidden"]');
-        expect(a.includes(".is-floating-nav") || a.includes(".auto-full-screen"), a).toBe(true);
-        expect(a).toContain(".mod-root");
+        expect(a).toContain(".is-phone");
+        expect(a).toContain('.workspace-split.mod-root .workspace-leaf-content[data-type="bases"]');
       }
     }
   });
 
-  it("does not slide for someone who asked for less motion", () => {
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*klartext-hide-base-toolbar[^}]*\{\s*transition:\s*none/);
+  it("floats the toolbar over the base, so moving it changes no layout and no scroll position", () => {
+    const r = one("klartext-hide-base-toolbar", /position:\s*absolute/);
+    for (const a of r.arms) expect(a.endsWith("> .view-content > .bases-header"), a).toBe(true);
+    expect(r.body).toMatch(/background-color:\s*var\(--background-primary\)/);
+    // The 0.5 switch collapsed a margin, which moved the rows and made the
+    // browser clamp the scroll position at the foot of a base.
+    for (const x of toolbarRules) {
+      expect(x.body).not.toMatch(/margin-top:\s*calc\(-1/);
+      expect(x.body).not.toMatch(/transition:[^;]*margin/);
+    }
+  });
+
+  it("opens the room in the scroller only while the search row is closed, where it would otherwise open it twice", () => {
+    const spacer = one("klartext-hide-base-toolbar", /height:\s*calc\(var\(--klartext-base-band\) \+ var\(--bases-header-height\)\)/);
+    for (const a of spacer.arms) expect(a).toContain('.bases-search-row[style*="display: none"] ~ .bases-view::before');
+  });
+
+  it("reads Obsidian's band only where it is a length: elsewhere it is a bare 0 that voids a calc()", () => {
+    const band = toolbarRules.filter((r) => /--klartext-base-band:\s*var\(--view-top-spacing\)/.test(r.body));
+    expect(band.length).toBeGreaterThan(0);
+    for (const r of band) for (const a of r.arms) expect(a.includes(".is-floating-nav") || a.includes(".auto-full-screen"), a).toBe(true);
+    expect(toolbarRules.some((r) => /--klartext-base-band:\s*0px/.test(r.body))).toBe(true);
+    for (const r of toolbarRules) expect(r.body).not.toMatch(/calc\([^;]*var\(--view-top-spacing/);
+  });
+
+  it("fades the rows under the status bar only where the bar floats", () => {
+    const mask = toolbarRules.filter((r) => /mask-image/.test(r.body));
+    expect(mask.length).toBeGreaterThan(0);
+    for (const r of mask) for (const a of r.arms) expect(a.includes(".is-floating-nav") || a.includes(".auto-full-screen"), a).toBe(true);
+  });
+
+  it("animates only the settling stretch, and not at all for someone who asked for less motion", () => {
+    const moving = toolbarRules.filter((r) => /transition:\s*(?!none)/.test(r.body));
+    expect(moving.length).toBeGreaterThan(0);
+    for (const r of moving) for (const a of r.arms) expect(a).toContain(".klartext-base-toolbar-settling");
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*klartext-base-toolbar-settling[^}]*\{\s*transition:\s*none/);
   });
 });
