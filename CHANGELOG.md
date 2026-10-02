@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-10-02
+
 ### Changed
 
 - **A base's toolbar follows your finger.** Scrolling down pushes it up by
