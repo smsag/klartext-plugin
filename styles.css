@@ -286,28 +286,85 @@ body.klartext-hide-prompt-instructions .prompt-instructions {
   display: none;
 }
 
-/* The note header on a phone: the sidebar button, the path, the reading-view
-   button and the ⋯ menu. Only a note's (`data-type="markdown"`), only in the main area: a
-   canvas, a PDF or a plugin's view keeps its header, whose buttons may be the
-   only way to its actions.
+/* The bar at the top of a view on a phone, in two parts (Hide the title /
+   Hide the header buttons on the phone): the folder and file name, and the
+   buttons around it (the sidebar button on the left; reading view and the ⋯
+   menu on the right).
 
-   With Obsidian's floating navigation, or its Auto full screen, the header
-   floats over the note and the note is pushed down clear of it through
-   --view-top-spacing-markdown (safe area + header height + 16px) and faded
-   under it through --view-top-fade-mask. Both levers are Obsidian's and both
-   are read only by markdown views, so they are restated without the header:
-   the note moves up into the header's place, and the fade is the one
-   Obsidian itself uses while Auto full screen has the header hidden. Without
-   floating navigation the header sits in the flow, and hiding it is all it
-   takes. Measured in Obsidian 1.13.7's phone emulation. */
-body.klartext-hide-phone-header.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] > .view-header {
+   One part alone is made invisible in place, never removed: the bar keeps its
+   height and the other part keeps its position, so nothing on the page moves.
+   The title goes from every view in the main area. The buttons only from a
+   note and a base: a canvas, a PDF or a plugin's view keeps them, because they
+   may be the only way to its actions.
+
+   Both parts hidden is the whole bar, and then a note or a base takes its
+   room. With Obsidian's floating navigation, or its Auto full screen, the bar
+   floats over the page and the page is pushed down clear of it: a note
+   through --view-top-spacing-markdown (safe area + bar + 16px) inside its
+   scroller, faded under it through --view-top-fade-mask; every other view
+   through --view-top-spacing (safe area + bar + 8px) on its content. All three
+   levers are Obsidian's, restated without the bar on the leaves whose bar is
+   emptied (a note in a drawer keeps its bar, and the room under it), and the
+   fade is the one Obsidian itself uses while Auto full screen has the bar
+   hidden.
+   What goes is the bar's content, never the bar itself. Without floating
+   navigation the bar sits in the flow and its top padding is the safe area:
+   removing the bar put the first line under the clock and the notch (0px
+   from the top, measured), which is how 0.4 shipped. Emptied, the bar is that
+   padding and nothing more. With floating navigation an empty bar has no
+   height at all. Measured in Obsidian 1.13.7's phone emulation. */
+body.klartext-hide-phone-title.is-phone .workspace-split.mod-root .workspace-leaf-content > .view-header .view-header-title-container {
+  visibility: hidden;
+}
+
+body.klartext-hide-phone-buttons.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] > .view-header .view-header-left,
+body.klartext-hide-phone-buttons.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] > .view-header .view-actions,
+body.klartext-hide-phone-buttons.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-header .view-header-left,
+body.klartext-hide-phone-buttons.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-header .view-actions {
+  visibility: hidden;
+}
+
+body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] > .view-header > *,
+body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-header > * {
   display: none;
 }
 
-body.klartext-hide-phone-header.is-phone.is-floating-nav,
-body.klartext-hide-phone-header.is-phone.auto-full-screen {
+body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone.is-floating-nav .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"],
+body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone.auto-full-screen .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] {
   --view-top-spacing-markdown: calc(var(--safe-area-inset-top) + 16px);
   --view-top-fade-mask: linear-gradient(to bottom, rgba(0, 0, 0, var(--view-top-fade-opacity)) 0%, #000000 var(--safe-area-inset-top));
+}
+
+body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone.is-floating-nav .workspace-split.mod-root .workspace-leaf-content[data-type="bases"],
+body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone.auto-full-screen .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] {
+  --view-top-spacing: calc(var(--safe-area-inset-top) + 8px);
+}
+
+/* A base's toolbar while scrolling (Hide a base's toolbar while scrolling on
+   the phone). main.ts marks the base's leaf from src/baseToolbar.ts; the
+   toolbar slides up out of the way and the base below follows it into the
+   room, so the rows gain the 52px rather than a blank band. The toolbar is
+   border-box at exactly --bases-header-height, which is what the margin takes
+   back. The slide moves the margin, so each of its frames lays the base out
+   again; Bases renders only the rows and cards on screen, and a frame
+   measured at most 0.3ms in a 400-row table and in a gallery, with no frame
+   over 16.8ms. Only the leaf's own base in the main area: one embedded in a
+   note scrolls with the note, and main.ts leaves a drawer's alone. No slide
+   for someone who asked the system for less motion. */
+body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-content > .bases-header {
+  transition: margin-top 200ms ease, opacity 200ms ease;
+}
+
+body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"][data-klartext-base-toolbar="hidden"] > .view-content > .bases-header {
+  margin-top: calc(-1 * var(--bases-header-height));
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-content > .bases-header {
+    transition: none;
+  }
 }
 
 /* The macOS window buttons, on the row's axis.

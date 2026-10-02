@@ -25,8 +25,12 @@ export interface KlartextSettings {
   hideSearchSuggestions: boolean;
   hideSearchCounts: boolean;
   hidePromptInstructions: boolean;
-  /** Phone: the note header (path, reading-view button, ⋯ menu). */
-  hidePhoneHeader: boolean;
+  /** Phone: the folder and file name at the top of a view. */
+  hidePhoneTitle: boolean;
+  /** Phone: the sidebar, reading-view and ⋯ buttons beside it, in a note or a base. */
+  hidePhoneButtons: boolean;
+  /** Phone: a base's toolbar slides away while the base is scrolled down. */
+  hideBaseToolbarOnScroll: boolean;
 }
 
 /** Installing the plugin is the choice of a quiet top row, so that part is on;
@@ -48,7 +52,9 @@ export const DEFAULT_SETTINGS: KlartextSettings = {
   hideSearchSuggestions: false,
   hideSearchCounts: false,
   hidePromptInstructions: false,
-  hidePhoneHeader: false,
+  hidePhoneTitle: false,
+  hidePhoneButtons: false,
+  hideBaseToolbarOnScroll: false,
 };
 
 export function normalizeSettings(raw: unknown): KlartextSettings {
@@ -57,6 +63,12 @@ export function normalizeSettings(raw: unknown): KlartextSettings {
   for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof KlartextSettings)[]) {
     const value = obj[key];
     if (typeof value === "boolean") out[key] = value;
+  }
+  // 0.4 had one switch for the whole note header. It is now the title and the
+  // buttons, and both on is what it did.
+  if (obj.hidePhoneHeader === true && !("hidePhoneTitle" in obj) && !("hidePhoneButtons" in obj)) {
+    out.hidePhoneTitle = true;
+    out.hidePhoneButtons = true;
   }
   return out;
 }

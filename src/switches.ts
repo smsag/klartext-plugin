@@ -140,16 +140,34 @@ export const HIDE_SWITCHES: readonly Switch[] = [
     desc: "Hides the keyboard hints along the foot of the quick switcher, the command palette and every other prompt. The shortcuts themselves are unchanged.",
   },
   {
-    key: "hidePhoneHeader",
-    cls: "klartext-hide-phone-header",
-    name: "Hide the note header on the phone",
+    key: "hidePhoneTitle",
+    cls: "klartext-hide-phone-title",
+    name: "Hide the title on the phone",
     only: "phone",
     desc:
-      "Phone only. Hides the bar at the top of a note: the sidebar button, the folder and file name, the " +
-      "reading-view button and the ⋯ menu. The note moves up into its place. The sidebar still opens with a swipe " +
-      "from the edge. Switch between reading and editing with the command “Toggle reading " +
-      "view”, which the mobile toolbar can carry, and reach the note's menu from the command palette. Other views, " +
-      "such as a canvas or a PDF, keep their header. Set this on the phone itself: the tab shows it only there.",
+      "Phone only. Hides the folder and file name at the top of a note, a base, a canvas or a PDF. The buttons " +
+      "beside it stay where they are, and so does the page. With the buttons hidden as well, the whole bar goes and " +
+      "a note or a base moves up into its place. Set this on the phone itself: the tab shows it only there.",
+  },
+  {
+    key: "hidePhoneButtons",
+    cls: "klartext-hide-phone-buttons",
+    name: "Hide the header buttons on the phone",
+    only: "phone",
+    desc:
+      "Phone only. Hides the buttons at the top of a note or a base: the sidebar button, the reading-view button " +
+      "and the ⋯ menu. The sidebar still opens with a swipe from the edge; switch between reading and editing with " +
+      "the command “Toggle reading view”, which the mobile toolbar can carry, and reach the menu from the command " +
+      "palette. A canvas, a PDF or a plugin's view keeps its buttons, which may be the only way to its actions.",
+  },
+  {
+    key: "hideBaseToolbarOnScroll",
+    cls: "klartext-hide-base-toolbar",
+    name: "Hide a base's toolbar while scrolling on the phone",
+    only: "phone",
+    desc:
+      "Phone only. The row above a base with its views, sort, filter, search and + slides away as you scroll down " +
+      "and comes back when you scroll up or reach the top. A base embedded in a note is left alone.",
   },
 ];
 

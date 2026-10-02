@@ -26,4 +26,10 @@ describe("normalizeSettings", () => {
   it("drops keys it does not know", () => {
     expect(normalizeSettings({ hideTabBar: true, extra: 1 })).toEqual({ ...DEFAULT_SETTINGS, hideTabBar: true });
   });
+
+  it("carries 0.4's one header switch over as both of its parts", () => {
+    expect(normalizeSettings({ hidePhoneHeader: true })).toEqual({ ...DEFAULT_SETTINGS, hidePhoneTitle: true, hidePhoneButtons: true });
+    expect(normalizeSettings({ hidePhoneHeader: true, hidePhoneTitle: false })).toEqual(DEFAULT_SETTINGS);
+    expect(normalizeSettings({ hidePhoneHeader: false })).toEqual(DEFAULT_SETTINGS);
+  });
 });

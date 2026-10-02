@@ -181,25 +181,63 @@ describe("the sidebar tab icons", () => {
   });
 });
 
-describe("the note header on a phone", () => {
-  it("hides a note's header in the main area on a phone, and nothing else's", () => {
-    // A canvas, a PDF or a plugin view keeps its header: its buttons may be
-    // the only way to that view's actions.
-    const r = one("klartext-hide-phone-header", /display:\s*none/);
-    for (const a of r.arms) {
-      expect(a).toContain(".is-phone");
-      expect(a).toContain(".mod-root");
-      expect(a).toContain('[data-type="markdown"]');
-      expect(a).toContain(".view-header");
+describe("the header on a phone", () => {
+  const titleOnly = keyedOn("klartext-hide-phone-title").filter((r) => !r.arms.some((a) => a.includes(".klartext-hide-phone-buttons")));
+  const buttonsOnly = keyedOn("klartext-hide-phone-buttons").filter((r) => !r.arms.some((a) => a.includes(".klartext-hide-phone-title")));
+  const both = keyedOn("klartext-hide-phone-title").filter((r) => r.arms.every((a) => a.includes(".klartext-hide-phone-buttons")));
+
+  it("hides one part alone in place, so the other part and the page keep their positions", () => {
+    for (const r of [...titleOnly, ...buttonsOnly]) {
+      expect(r.body).toMatch(/visibility:\s*hidden/);
+      expect(r.body).not.toMatch(/display:\s*none/);
+      for (const a of r.arms) {
+        expect(a).toContain(".is-phone");
+        expect(a).toContain(".mod-root");
+      }
     }
+    expect(titleOnly.flatMap((r) => r.arms).every((a) => a.endsWith(".view-header-title-container"))).toBe(true);
   });
 
-  it("gives the header's room back through Obsidian's own spacing, not a padding of its own", () => {
-    const r = one("klartext-hide-phone-header", /--view-top-spacing-markdown/);
-    expect(r.body).not.toMatch(/--view-header-height/); // other views keep their header, at its height
-    for (const a of r.arms) {
-      expect(a).toContain(".is-phone");
-      expect(a.includes(".is-floating-nav") || a.includes(".auto-full-screen"), a).toBe(true);
+  it("keeps the buttons of a canvas, a PDF or a plugin's view: they may be its only way to its actions", () => {
+    const arms = buttonsOnly.flatMap((r) => r.arms);
+    expect(arms.length).toBeGreaterThan(0);
+    for (const a of arms) expect(a.includes('[data-type="markdown"]') || a.includes('[data-type="bases"]'), a).toBe(true);
+  });
+
+  it("empties the bar rather than removing it, so the safe area under the clock stays when it sits in the flow", () => {
+    const r = both.find((x) => /display:\s*none/.test(x.body));
+    expect(r).toBeDefined();
+    for (const a of r!.arms) expect(a.endsWith(".view-header > *"), a).toBe(true);
+    expect(css).not.toMatch(/\.view-header\s*\{\s*display:\s*none/);
+  });
+
+  it("gives the bar's room back through Obsidian's own spacing, and only under floating navigation", () => {
+    const spacing = both.filter((x) => /--view-top-spacing/.test(x.body));
+    expect(spacing.some((x) => /--view-top-spacing-markdown/.test(x.body))).toBe(true);
+    expect(spacing.some((x) => /--view-top-spacing:/.test(x.body))).toBe(true);
+    for (const r of spacing) {
+      expect(r.body).not.toMatch(/--view-header-height/);
+      for (const a of r.arms) {
+        expect(a.includes(".is-floating-nav") || a.includes(".auto-full-screen"), a).toBe(true);
+        // Only where the bar is emptied: a note in a drawer keeps its bar.
+        expect(a).toContain(".workspace-split.mod-root .workspace-leaf-content[data-type=");
+      }
     }
+  });
+});
+
+describe("a base's toolbar while scrolling", () => {
+  it("moves only a leaf's own base, marked by the plugin, and never one embedded in a note", () => {
+    const r = one("klartext-hide-base-toolbar", /margin-top:\s*calc/);
+    for (const a of r.arms) {
+      expect(a).toContain('[data-type="bases"][data-klartext-base-toolbar="hidden"] > .view-content > .bases-header');
+      expect(a).toContain(".is-phone");
+    }
+    expect(r.body).toMatch(/var\(--bases-header-height\)/);
+    expect(r.body).toMatch(/pointer-events:\s*none/);
+  });
+
+  it("does not slide for someone who asked for less motion", () => {
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*klartext-hide-base-toolbar[^}]*\{\s*transition:\s*none/);
   });
 });
