@@ -35,6 +35,18 @@ generated notes.
   safe area, and hiding the header took it along: the first line sat 8px from
   the top of the screen. The bar is now emptied instead of removed, so the
   page starts below the safe area, as it does with the header shown.
+- **A note in a phone sidebar keeps the room under its header.** With the
+  header hidden and floating navigation, the reduced top spacing reached
+  every note, including one in a drawer, whose header is never hidden: its
+  first lines started under the header.
+
+### Diagnostics
+
+- *Copy diagnostics* now says whether the device counts as a phone, and
+  carries Obsidian's floating navigation and Auto full screen classes. It
+  counts the times a base's toolbar slid away or came back, and the scroll
+  events from inside a base that were not its own scroller, so a later
+  Obsidian that scrolls a different element shows up as such.
 
 ## [0.4.3] — 2026-09-30
 

@@ -217,7 +217,11 @@ describe("the header on a phone", () => {
     expect(spacing.some((x) => /--view-top-spacing:/.test(x.body))).toBe(true);
     for (const r of spacing) {
       expect(r.body).not.toMatch(/--view-header-height/);
-      for (const a of r.arms) expect(a.includes(".is-floating-nav") || a.includes(".auto-full-screen"), a).toBe(true);
+      for (const a of r.arms) {
+        expect(a.includes(".is-floating-nav") || a.includes(".auto-full-screen"), a).toBe(true);
+        // Only where the bar is emptied: a note in a drawer keeps its bar.
+        expect(a).toContain(".workspace-split.mod-root .workspace-leaf-content[data-type=");
+      }
     }
   });
 });

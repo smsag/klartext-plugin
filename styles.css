@@ -303,8 +303,10 @@ body.klartext-hide-prompt-instructions .prompt-instructions {
    through --view-top-spacing-markdown (safe area + bar + 16px) inside its
    scroller, faded under it through --view-top-fade-mask; every other view
    through --view-top-spacing (safe area + bar + 8px) on its content. All three
-   levers are Obsidian's, restated without the bar, and the fade is the one
-   Obsidian itself uses while Auto full screen has the bar hidden.
+   levers are Obsidian's, restated without the bar on the leaves whose bar is
+   emptied (a note in a drawer keeps its bar, and the room under it), and the
+   fade is the one Obsidian itself uses while Auto full screen has the bar
+   hidden.
    What goes is the bar's content, never the bar itself. Without floating
    navigation the bar sits in the flow and its top padding is the safe area:
    removing the bar put the first line under the clock and the notch (0px
@@ -327,8 +329,8 @@ body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone .workspace-s
   display: none;
 }
 
-body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone.is-floating-nav,
-body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone.auto-full-screen {
+body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone.is-floating-nav .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"],
+body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone.auto-full-screen .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] {
   --view-top-spacing-markdown: calc(var(--safe-area-inset-top) + 16px);
   --view-top-fade-mask: linear-gradient(to bottom, rgba(0, 0, 0, var(--view-top-fade-opacity)) 0%, #000000 var(--safe-area-inset-top));
 }
@@ -343,8 +345,12 @@ body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone.auto-full-sc
    toolbar slides up out of the way and the base below follows it into the
    room, so the rows gain the 52px rather than a blank band. The toolbar is
    border-box at exactly --bases-header-height, which is what the margin takes
-   back. Only the leaf's own base: one embedded in a note scrolls with the
-   note. No slide for someone who asked the system for less motion. */
+   back. The slide moves the margin, so each of its frames lays the base out
+   again; Bases renders only the rows and cards on screen, and a frame
+   measured at most 0.3ms in a 400-row table and in a gallery, with no frame
+   over 16.8ms. Only the leaf's own base in the main area: one embedded in a
+   note scrolls with the note, and main.ts leaves a drawer's alone. No slide
+   for someone who asked the system for less motion. */
 body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-content > .bases-header {
   transition: margin-top 200ms ease, opacity 200ms ease;
 }
