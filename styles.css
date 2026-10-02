@@ -399,6 +399,22 @@ body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-le
   background-color: var(--background-primary);
 }
 
+/* The band above the toolbar is the toolbar's ground. At the top of a base
+   the band is empty anyway; mid-base the rows pass through it under the
+   fade, and a toolbar pulled back there floated under a see-through strip
+   with the rows showing in it (reported on an iPhone). Carried by the
+   toolbar, the ground moves and fades with it: a returned toolbar reaches
+   the top edge, a gone one leaves the band to the rows. */
+body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-content > .bases-header::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--klartext-base-band);
+  background-color: var(--background-primary);
+}
+
 body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"]:not(.klartext-base-search-open) > .view-content > .bases-view::before {
   content: "";
   display: block;

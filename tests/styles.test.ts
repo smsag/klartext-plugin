@@ -271,8 +271,16 @@ describe("a base's toolbar while scrolling", () => {
     expect(r.body).toMatch(/position:\s*relative/);
   });
 
+  it("gives the toolbar the band above it as its ground, moving with it, so a returned toolbar reaches the top edge", () => {
+    const r = keyedOn("klartext-hide-base-toolbar").find((x) => x.arms.every((a) => a.endsWith("> .view-content > .bases-header::before")));
+    expect(r).toBeDefined();
+    expect(r!.body).toMatch(/bottom:\s*100%/);
+    expect(r!.body).toMatch(/height:\s*var\(--klartext-base-band\)/);
+    expect(r!.body).toMatch(/background-color:\s*var\(--background-primary\)/);
+  });
+
   it("backs a table's header with the band only once the toolbar has gone, never at rest", () => {
-    const r = one("klartext-hide-base-toolbar", /bottom:\s*100%/);
+    const r = keyedOn("klartext-hide-base-toolbar").find((x) => x.arms.every((a) => a.endsWith(".bases-thead::before")))!;
     for (const a of r.arms) {
       expect(a).toContain(".klartext-base-toolbar-gone");
       expect(a.endsWith(".bases-thead::before"), a).toBe(true);

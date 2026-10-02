@@ -5,6 +5,17 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.5.3] — 2026-10-02
+
+### Fixed
+
+- **A base's toolbar pulled back mid-base reaches the top edge.** The band
+  above it (the safe area under the clock) belongs to the room the rows
+  flow into, so a toolbar returned in the middle of a base floated under a
+  see-through strip with the cards showing in it. The toolbar now carries
+  that band as its ground, moving and fading with it: back, it closes the
+  top of the screen; gone, it leaves the band to the rows again.
+
 ## [0.5.2] — 2026-10-02
 
 ### Changed
