@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.5.3] — 2026-10-02
+
 ### Fixed
 
 - **A base's toolbar pulled back mid-base reaches the top edge.** The band
