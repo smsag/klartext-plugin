@@ -341,27 +341,35 @@ body.klartext-hide-phone-title.klartext-hide-phone-buttons.is-phone.auto-full-sc
 }
 
 /* A base's toolbar while scrolling (Hide a base's toolbar while scrolling on
-   the phone). The toolbar floats over the base and main.ts moves it with the
-   finger (src/baseToolbar.ts): pushed up by the distance scrolled until it is
-   gone, pulled back the same way, settled to the nearer end when scrolling
-   stops half way. Floating, its moves change no layout and no scroll
-   position; a transform and an opacity are all a frame costs.
+   the phone). The toolbar floats over the base and the plugin moves it with
+   the finger (src/baseToolbar.ts, wired in src/baseToolbarWiring.ts): pushed
+   up by the distance scrolled until it is gone, pulled back the same way,
+   settled to the nearer end once scrolling stops and no finger is down.
+   Floating, its moves change no layout and no scroll position; a transform
+   and an opacity are all a frame costs.
 
-   The room it floats over is the room Obsidian keeps above a base
-   (--view-top-spacing: the safe area and the floating bar under Obsidian's
-   floating navigation or Auto full screen, nothing when the bar sits in the
-   flow; --klartext-base-band below) plus the toolbar itself. The base's content starts at the top of
-   the screen and that room opens its scroller instead, so rows scroll up
-   under the toolbar and, once it has gone, under the status bar, faded there
-   with Obsidian's own fade, as a note is.
+   The room it floats over is the band Obsidian keeps above a base (the safe
+   area and the floating bar under Obsidian's floating navigation or Auto
+   full screen, nothing where the bar sits in the flow: --klartext-base-band)
+   plus the toolbar itself. The base's content starts at the top of the
+   screen and that room opens its scroller instead, so rows scroll up under
+   the toolbar and, once it has gone, under the status bar, faded there with
+   Obsidian's own fade, as a note is.
 
-   Obsidian hides the base's search row with an inline display: none. While it
-   is open it sits under the toolbar and opens the room itself, and main.ts
-   keeps the toolbar where it is. A table's sticky header sticks under the
-   toolbar: main.ts follows it with the toolbar's moves.
+   The base's content is its own stacking context at z-index 0, so the
+   toolbar, however it is lifted, slides under Obsidian's floating bar
+   (z-index 1) and never takes its taps.
+
+   While the base's search row is open (the plugin marks the leaf, from the
+   row's computed display) the row sits under the toolbar and opens the room
+   itself, and the toolbar stays. A table's sticky header sticks under the
+   toolbar, at --klartext-thead-top while the toolbar is moved, and once it
+   has gone the band above it is the header's ground, so no row shows above
+   the column names.
 
    Only the leaf's own base in the main area: one embedded in a note scrolls
-   with the note, and main.ts leaves a drawer's alone. */
+   with the note, and a drawer's is left alone. */
+
 /* The band above the toolbar, as a length: Obsidian's --view-top-spacing
    where the bar floats, nothing where it sits in the flow. Read from
    Obsidian only where it is a calc(); elsewhere it is a bare 0, which
@@ -378,6 +386,7 @@ body.klartext-hide-base-toolbar.is-phone.auto-full-screen .workspace-split.mod-r
 
 body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-content {
   position: relative;
+  z-index: 0;
   margin-top: 0;
 }
 
@@ -390,24 +399,21 @@ body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-le
   background-color: var(--background-primary);
 }
 
-body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-content > .bases-search-row[style*="display: none"] ~ .bases-view::before {
+body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"]:not(.klartext-base-search-open) > .view-content > .bases-view::before {
   content: "";
   display: block;
   height: calc(var(--klartext-base-band) + var(--bases-header-height));
 }
 
-body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-content > .bases-search-row {
+body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"].klartext-base-search-open > .view-content > .bases-search-row {
   margin-top: calc(var(--klartext-base-band) + var(--bases-header-height));
 }
 
-body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-content > .bases-search-row[style*="display: none"] ~ .bases-view .bases-thead {
-  top: calc(var(--klartext-base-band) + var(--bases-header-height));
+body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"]:not(.klartext-base-search-open) > .view-content > .bases-view .bases-thead {
+  top: var(--klartext-thead-top, calc(var(--klartext-base-band) + var(--bases-header-height)));
 }
 
-/* A table's header is the bar of a table: once the toolbar has gone it
-   sticks at the top of the room, and the band above it (the status bar, the
-   floating bar) is its ground too, so no row shows above the column names. */
-body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"] > .view-content > .bases-search-row[style*="display: none"] ~ .bases-view .bases-thead::before {
+body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"].klartext-base-toolbar-gone:not(.klartext-base-search-open) > .view-content > .bases-view .bases-thead::before {
   content: "";
   position: absolute;
   left: 0;
@@ -422,9 +428,10 @@ body.klartext-hide-base-toolbar.is-phone.auto-full-screen .workspace-split.mod-r
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, var(--view-top-fade-opacity)) 0%, #000000 var(--klartext-base-band));
 }
 
-/* The last stretch of a toolbar left half way, which no finger drives. */
+/* The last stretch of a toolbar left half way, which no finger drives. It
+   becomes hidden only when the slide has ended, not as it starts. */
 body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"].klartext-base-toolbar-settling > .view-content > .bases-header {
-  transition: transform 180ms ease-out, opacity 180ms ease-out;
+  transition: transform 180ms ease-out, opacity 180ms ease-out, visibility 0s linear 180ms;
 }
 
 body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-leaf-content[data-type="bases"].klartext-base-toolbar-settling > .view-content > .bases-view .bases-thead {

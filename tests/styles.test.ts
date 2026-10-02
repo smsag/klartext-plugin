@@ -253,7 +253,35 @@ describe("a base's toolbar while scrolling", () => {
 
   it("opens the room in the scroller only while the search row is closed, where it would otherwise open it twice", () => {
     const spacer = one("klartext-hide-base-toolbar", /height:\s*calc\(var\(--klartext-base-band\) \+ var\(--bases-header-height\)\)/);
-    for (const a of spacer.arms) expect(a).toContain('.bases-search-row[style*="display: none"] ~ .bases-view::before');
+    for (const a of spacer.arms) expect(a).toContain(':not(.klartext-base-search-open) > .view-content > .bases-view::before');
+  });
+
+  it("keys the search row on the plugin's own mark, never on Obsidian's inline style", () => {
+    // The plugin decides whether the row is open from its computed display;
+    // a selector reading the style attribute could disagree with it.
+    expect(css).not.toMatch(/\[style\*=/);
+    const open = toolbarRules.filter((r) => r.arms.some((a) => a.includes(".bases-search-row")));
+    expect(open.length).toBeGreaterThan(0);
+    for (const r of open) for (const a of r.arms) expect(a).toContain(".klartext-base-search-open");
+  });
+
+  it("keeps the toolbar under Obsidian's floating bar: the base's content is its own stacking context at 0", () => {
+    const r = one("klartext-hide-base-toolbar", /z-index:\s*0/);
+    for (const a of r.arms) expect(a.endsWith("> .view-content"), a).toBe(true);
+    expect(r.body).toMatch(/position:\s*relative/);
+  });
+
+  it("backs a table's header with the band only once the toolbar has gone, never at rest", () => {
+    const r = one("klartext-hide-base-toolbar", /bottom:\s*100%/);
+    for (const a of r.arms) {
+      expect(a).toContain(".klartext-base-toolbar-gone");
+      expect(a.endsWith(".bases-thead::before"), a).toBe(true);
+    }
+  });
+
+  it("hides a settling toolbar only when its slide has ended", () => {
+    const r = one("klartext-hide-base-toolbar", /transition:[^;]*transform/);
+    expect(r.body).toMatch(/visibility 0s linear 180ms/);
   });
 
   it("reads Obsidian's band only where it is a length: elsewhere it is a bare 0 that voids a calc()", () => {
