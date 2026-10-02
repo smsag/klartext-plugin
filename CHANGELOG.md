@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-10-02
+
 ### Changed
 
 - **A base flows up under the status bar while its toolbar is away**, and
