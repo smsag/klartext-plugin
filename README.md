@@ -32,7 +32,7 @@ parts of Obsidian are *there*, and when. No setting lives in both.
 | Hide prompt instructions | off | the keyboard hints at the foot of every prompt |
 | Hide the title on the phone | off | the folder and file name at the top of a note, a base, a canvas or a PDF on a phone; the buttons and the page stay where they are (phone only) |
 | Hide the header buttons on the phone | off | the sidebar, reading-view and ⋯ buttons at the top of a note or a base on a phone. With the title hidden too, the whole bar goes and the page moves up into its place (phone only) |
-| Hide a base's toolbar while scrolling on the phone | off | the row with views, sort, filter, search and + above a base slides away as you scroll down and returns when you scroll up or reach the top (phone only) |
+| Hide a base's toolbar while scrolling on the phone | off | the row with views, sort, filter, search and + above a base moves out of the way as you scroll down, following your finger, and comes back the same way when you scroll up (phone only) |
 
 Several reach further than their names, and their descriptions say what goes
 with them and how to get it back.

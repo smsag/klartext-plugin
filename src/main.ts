@@ -16,7 +16,7 @@ import { Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, type A
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
 import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
-import { TOOLBAR_UNSEEN, nextToolbar, type ToolbarScroll } from "./baseToolbar";
+import { BaseToolbars } from "./baseToolbarWiring";
 import {
   INITIAL,
   anyResizing,
@@ -43,9 +43,6 @@ const ACTIVE_CLASS = "klartext-top-row";
  */
 const STATE_ATTR = "data-klartext-top-row";
 
-/** On a base's leaf while its toolbar has slid away. Per leaf, so two bases
- *  side by side each keep their own. */
-const BASE_TOOLBAR_ATTR = "data-klartext-base-toolbar";
 
 /** The window's top row: the root split's tab strip and the headers of its
  *  top panes. A stacked pane further down carries no `mod-top`. */
@@ -206,7 +203,7 @@ interface Counters {
   skippedWhileResizing: number;
   bandMeasures: number;
   errors: number;
-  /** Times a base's toolbar slid away or came back. */
+  /** Times a base's toolbar arrived all gone or all there again. */
   baseToolbarChanges: number;
   /** Scroll events from inside a base that were not its own scroller. A
    *  number that grows while baseToolbarChanges stays 0 means Obsidian now
@@ -228,12 +225,8 @@ export default class KlartextPlugin extends Plugin {
   /** Each distinct failure is logged once, then counted: a poll runs twenty
    *  times a second, and a console that scrolls the same line is no report. */
   private readonly reported = new Map<string, number>();
-  /** Each base leaf's toolbar, and the scroller that state belongs to: the
-   *  leaf outlives its scroller (another view, another file, a re-render),
-   *  and a new scroller starts unseen. */
-  private toolbars = new WeakMap<HTMLElement, { scroller: HTMLElement; state: ToolbarScroll }>();
-  /** The capture-phase scroll listener, present only while the switch is on. */
-  private baseScrollListener: ((e: Event) => void) | null = null;
+  /** A base's toolbar on a phone, while its switch is on. */
+  private readonly baseToolbars = new BaseToolbars(document, this.counters);
 
   override async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
@@ -248,8 +241,10 @@ export default class KlartextPlugin extends Plugin {
     this.syncBaseScroll();
     // Whatever replaces a base in its leaf, or moves to another one, shows the
     // toolbar again: a short base cannot be scrolled back to bring it.
-    this.registerEvent(this.app.workspace.on("layout-change", () => this.releaseBaseToolbars()));
-    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.releaseBaseToolbars()));
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.baseToolbars.sync()));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.baseToolbars.sync()));
+    this.registerEvent(this.app.workspace.on("resize", () => this.baseToolbars.sync(false)));
+    this.registerEvent(this.app.workspace.on("css-change", () => this.baseToolbars.sync(false)));
 
     // The furniture switches are CSS and work everywhere; the top row and the
     // window buttons need Electron, which only a desktop has.
@@ -291,54 +286,14 @@ export default class KlartextPlugin extends Plugin {
     }
     this.windows.clear();
     document.body.removeClass(ACTIVE_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
-    if (this.baseScrollListener !== null) document.removeEventListener("scroll", this.baseScrollListener, { capture: true });
-    this.baseScrollListener = null;
-    this.releaseBaseToolbars();
+    this.baseToolbars.stop();
   }
 
-  /** The scroll listener exists while the switch is on, on a phone, and not
-   *  otherwise: scroll does not bubble, so it listens in the capture phase and
-   *  hears every scroller there is. */
+  /** The toolbar is followed while its switch is on, on a phone, and not
+   *  otherwise: no listener, no observer. */
   private syncBaseScroll(): void {
-    const wanted = Platform.isPhone && this.settings.hideBaseToolbarOnScroll;
-    if (wanted && this.baseScrollListener === null) {
-      this.baseScrollListener = (e) => this.onBaseScroll(e);
-      document.addEventListener("scroll", this.baseScrollListener, { capture: true, passive: true });
-    } else if (!wanted && this.baseScrollListener !== null) {
-      document.removeEventListener("scroll", this.baseScrollListener, { capture: true });
-      this.baseScrollListener = null;
-      this.releaseBaseToolbars();
-    }
-  }
-
-  /** A base's own scroller moved: does its toolbar step aside or come back? */
-  private onBaseScroll(e: Event): void {
-    const view = e.target as HTMLElement | null;
-    if (typeof view?.closest !== "function") return;
-    // Only a base in the main area, where styles.css acts; a drawer's base and
-    // one embedded in a note (which scrolls with the note) are left alone.
-    const leaf = view.closest<HTMLElement>('.workspace-split.mod-root .workspace-leaf-content[data-type="bases"]');
-    if (leaf === null) return;
-    if (!view.classList.contains("bases-view") || view.parentElement?.parentElement !== leaf) {
-      this.counters.baseScrollsIgnored++;
-      return;
-    }
-    const seen = this.toolbars.get(leaf);
-    const before = seen?.scroller === view ? seen.state : TOOLBAR_UNSEEN;
-    const after = nextToolbar(before, view.scrollTop, view.scrollHeight - view.clientHeight);
-    this.toolbars.set(leaf, { scroller: view, state: after });
-    // Written from the state, not from the change, so a leaf whose scroller
-    // was replaced mid-scroll cannot keep a stale "hidden".
-    if (leaf.hasAttribute(BASE_TOOLBAR_ATTR) === after.hidden) return;
-    if (after.hidden) leaf.setAttribute(BASE_TOOLBAR_ATTR, "hidden");
-    else leaf.removeAttribute(BASE_TOOLBAR_ATTR);
-    this.counters.baseToolbarChanges++;
-  }
-
-  /** Every toolbar back, as on a plugin that never ran. */
-  private releaseBaseToolbars(): void {
-    document.querySelectorAll(`[${BASE_TOOLBAR_ATTR}]`).forEach((el) => el.removeAttribute(BASE_TOOLBAR_ATTR));
-    this.toolbars = new WeakMap();
+    if (Platform.isPhone && this.settings.hideBaseToolbarOnScroll) this.baseToolbars.start();
+    else this.baseToolbars.stop();
   }
 
   async saveSettings(): Promise<void> {

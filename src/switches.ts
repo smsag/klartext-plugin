@@ -166,8 +166,9 @@ export const HIDE_SWITCHES: readonly Switch[] = [
     name: "Hide a base's toolbar while scrolling on the phone",
     only: "phone",
     desc:
-      "Phone only. The row above a base with its views, sort, filter, search and + slides away as you scroll down " +
-      "and comes back when you scroll up or reach the top. A base embedded in a note is left alone.",
+      "Phone only. The row above a base with its views, sort, filter, search and + moves up out of the way as you " +
+      "scroll down, following your finger, and comes back the same way when you scroll up. The rows flow up under " +
+      "it. While the base's search is open it stays. A base embedded in a note is left alone.",
   },
 ];
 

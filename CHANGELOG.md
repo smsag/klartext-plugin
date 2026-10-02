@@ -5,6 +5,23 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-10-02
+
+### Changed
+
+- **A base's toolbar follows your finger.** Scrolling down pushes it up by
+  exactly the distance scrolled until it has gone, scrolling up pulls it back
+  the same way, and where you stop with it half way it settles to the nearer
+  end. 0.5 switched it with a short slide once you had scrolled 24px, which
+  read as the toolbar being suddenly gone. The toolbar now floats over the
+  base, so its moves shift no rows; a table's column names stick right under
+  it and, once it has gone, at the top with the band above them as their
+  ground. While the base's search is open the toolbar stays, also when the
+  search is opened with the toolbar away. A finger resting mid-drag holds a
+  half-way toolbar; it settles once the finger lifts, and becomes hidden only
+  at the end of its slide. Pushed up, the toolbar slides under Obsidian's
+  floating bar and never takes its taps.
+
 ## [0.5.1] — 2026-10-02
 
 ### Changed
