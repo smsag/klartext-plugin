@@ -237,6 +237,19 @@ describe("a base's toolbar while scrolling", () => {
     expect(r.body).toMatch(/pointer-events:\s*none/);
   });
 
+  it("lets the base flow under the status bar only while the toolbar is away, and only under floating navigation", () => {
+    const flow = keyedOn("klartext-hide-base-toolbar").filter((r) => /--view-top-spacing:\s*0|mask-image/.test(r.body));
+    expect(flow.some((r) => /--view-top-spacing:\s*0/.test(r.body))).toBe(true);
+    expect(flow.some((r) => /mask-image/.test(r.body))).toBe(true);
+    for (const r of flow) {
+      for (const a of r.arms) {
+        expect(a).toContain('[data-klartext-base-toolbar="hidden"]');
+        expect(a.includes(".is-floating-nav") || a.includes(".auto-full-screen"), a).toBe(true);
+        expect(a).toContain(".mod-root");
+      }
+    }
+  });
+
   it("does not slide for someone who asked for less motion", () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*klartext-hide-base-toolbar[^}]*\{\s*transition:\s*none/);
   });
