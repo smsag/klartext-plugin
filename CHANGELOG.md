@@ -5,6 +5,35 @@ generated notes.
 
 ## [Unreleased]
 
+### Added
+
+- **A base's toolbar steps aside while you scroll on the phone** (Hide a base's
+  toolbar while scrolling on the phone). The row with views, sort, filter,
+  search and + slides away as the base is scrolled down, and the rows take its
+  52px; it comes back as soon as you scroll up or reach the top. It waits
+  until the base has scrolled past the toolbar and ignores a finger that
+  wobbles, and it does not flicker at the foot of a base, where taking the
+  room back moves the scroll position. A base embedded in a note is left
+  alone. No slide with the system's reduced motion on.
+
+### Changed
+
+- **The phone header is two settings: the title, and the buttons.** *Hide the
+  title on the phone* hides the folder and file name, in a note, a base, a
+  canvas or a PDF; *Hide the header buttons on the phone* hides the sidebar,
+  reading-view and ⋯ buttons in a note or a base. One alone leaves the bar and
+  the page where they are. Both together hide the whole bar, as the old
+  *Hide the note header on the phone* did, and now in a base too, which moves
+  up into its place. The old setting carries over as both.
+
+### Fixed
+
+- **Without Obsidian's floating navigation, a phone note with its header
+  hidden no longer starts under the clock.** The header's top padding is the
+  safe area, and hiding the header took it along: the first line sat 8px from
+  the top of the screen. The bar is now emptied instead of removed, so the
+  page starts below the safe area, as it does with the header shown.
+
 ## [0.4.3] — 2026-09-30
 
 ### Fixed

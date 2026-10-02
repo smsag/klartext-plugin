@@ -16,6 +16,7 @@ import { Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, type A
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
 import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
+import { TOOLBAR_SHOWN, nextToolbar, type ToolbarScroll } from "./baseToolbar";
 import {
   INITIAL,
   anyResizing,
@@ -41,6 +42,10 @@ const ACTIVE_CLASS = "klartext-top-row";
  * made every window's row follow the main window's pointer.
  */
 const STATE_ATTR = "data-klartext-top-row";
+
+/** On a base's leaf while its toolbar has slid away. Per leaf, so two bases
+ *  side by side each keep their own. */
+const BASE_TOOLBAR_ATTR = "data-klartext-base-toolbar";
 
 /** The window's top row: the root split's tab strip and the headers of its
  *  top panes. A stacked pane further down carries no `mod-top`. */
@@ -201,6 +206,8 @@ interface Counters {
   skippedWhileResizing: number;
   bandMeasures: number;
   errors: number;
+  /** Times a base's toolbar slid away or came back. */
+  baseToolbarChanges: number;
 }
 
 export default class KlartextPlugin extends Plugin {
@@ -212,11 +219,14 @@ export default class KlartextPlugin extends Plugin {
   private readonly windows = new Map<Window, RowWindow>();
   /** The poll loop, running only while the top row fades. */
   private loop: number | null = null;
-  private readonly counters: Counters = { ticks: 0, cursorReads: 0, boundsReads: 0, skippedWhileResizing: 0, bandMeasures: 0, errors: 0 };
+  private readonly counters: Counters = { ticks: 0, cursorReads: 0, boundsReads: 0, skippedWhileResizing: 0, bandMeasures: 0, errors: 0, baseToolbarChanges: 0 };
   private readonly startedAt = Date.now();
   /** Each distinct failure is logged once, then counted: a poll runs twenty
    *  times a second, and a console that scrolls the same line is no report. */
   private readonly reported = new Map<string, number>();
+  /** Each base leaf's toolbar, keyed by the leaf: Obsidian replaces the
+   *  scroller when the view is switched, and the leaf outlives it. */
+  private toolbars = new WeakMap<HTMLElement, ToolbarScroll>();
 
   override async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
@@ -227,6 +237,13 @@ export default class KlartextPlugin extends Plugin {
       name: "Copy diagnostics",
       callback: () => void this.copyDiagnostics(),
     });
+
+    // Scroll does not bubble, so one listener in the capture phase hears every
+    // scroller and picks out a base's. Registered on a phone only, where the
+    // switch can be on; with it off the listener returns at the first check.
+    if (Platform.isPhone) {
+      this.registerDomEvent(document, "scroll", (e) => this.onBaseScroll(e), { capture: true, passive: true });
+    }
 
     // The furniture switches are CSS and work everywhere; the top row and the
     // window buttons need Electron, which only a desktop has.
@@ -268,11 +285,39 @@ export default class KlartextPlugin extends Plugin {
     }
     this.windows.clear();
     document.body.removeClass(ACTIVE_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
+    this.releaseBaseToolbars();
+  }
+
+  /** A base's own scroller moved: does its toolbar step aside or come back? */
+  private onBaseScroll(e: Event): void {
+    if (!this.settings.hideBaseToolbarOnScroll) return;
+    const view = e.target as HTMLElement | null;
+    if (!view?.classList?.contains("bases-view")) return;
+    // The leaf's own base, not one embedded in a note, which scrolls with it.
+    const content = view.parentElement;
+    const leaf = content?.parentElement;
+    if (!content?.classList.contains("view-content") || !leaf?.matches('.workspace-leaf-content[data-type="bases"]')) return;
+    const before = this.toolbars.get(leaf) ?? TOOLBAR_SHOWN;
+    const after = nextToolbar(before, view.scrollTop, Date.now());
+    this.toolbars.set(leaf, after);
+    // Written from the state, not from the change, so a leaf whose scroller
+    // was replaced mid-scroll cannot keep a stale "hidden".
+    if (leaf.hasAttribute(BASE_TOOLBAR_ATTR) === after.hidden) return;
+    if (after.hidden) leaf.setAttribute(BASE_TOOLBAR_ATTR, "hidden");
+    else leaf.removeAttribute(BASE_TOOLBAR_ATTR);
+    this.counters.baseToolbarChanges++;
+  }
+
+  /** Every toolbar back, as on a plugin that never ran. */
+  private releaseBaseToolbars(): void {
+    document.querySelectorAll(`[${BASE_TOOLBAR_ATTR}]`).forEach((el) => el.removeAttribute(BASE_TOOLBAR_ATTR));
+    this.toolbars = new WeakMap();
   }
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
     this.applySwitches();
+    if (!this.settings.hideBaseToolbarOnScroll) this.releaseBaseToolbars();
     for (const row of this.windows.values()) {
       row.placeButtons();
       if (!this.settings.topRowOnHover) {
