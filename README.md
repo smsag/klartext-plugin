@@ -10,6 +10,11 @@ and works under any theme. **The split:** the theme decides how Klartext
 *looks* (type, spacing, colour, marks, diagrams); this plugin decides which
 parts of Obsidian are *there*, and when. No setting lives in both.
 
+One switch reaches into the note: **a table cell can reach down** over the
+rows below it. That is how a table looks, so by the split it would be the
+theme's, but a stylesheet cannot do it (see below), and it works under any
+theme.
+
 ## The switches
 
 | Setting | Default | Does |
@@ -119,6 +124,36 @@ and a third less script time than before.
 **With the fading off there is no loop at all.** The plugin looks at nothing
 until the setting is switched on again.
 
+## Tables: a cell reaching down
+
+With *Let a cell reach down over missing cells* on (Tables, off by default), a
+table row with fewer cells than the header leaves its missing last columns to
+the cell above it. That cell reaches down over the row, to the next row that
+has a cell in that column again, and its text is centred both ways:
+
+```markdown
+| Spalte 1 | Spalte 2 | Spalte 3 |
+| --- | --- | --- |
+| content | Content | content |
+| content | content |
+| Content | Content |
+```
+
+Here the last `content` fills column 3 for all three rows.
+
+- **Only missing cells.** `|  |` is a cell with nothing in it and stays one.
+- **The header never reaches down.** A cell missing from the first row stays
+  empty, and so does its column below until a row has the cell.
+- **Reading view and Live Preview.** The note is not changed: the same table
+  shows empty cells with the switch off, and in any other Markdown reader.
+- **Why not the theme:** CSS has no rowspan, and in Obsidian's rendered table a
+  missing cell is an empty cell like one written empty. Only the source tells
+  them apart, so the plugin reads it: in Reading view from the section it is
+  given, in Live Preview from the editor beside the table widget.
+- **Hidden, not removed.** A covered cell is taken out of the layout, not out
+  of the table: Live Preview's table widget keeps its own count of cells for
+  editing and moving between them.
+
 ## Not here, on purpose
 
 **The heading level marks** (`#₁`…`#₆` in Live Preview's margin) stay in the
@@ -225,9 +260,10 @@ the bare version, as Obsidian expects, and attaches the `main.js` it built with
 `manifest.json` and `styles.css`. The notes are GitHub's, generated from the
 merged pull requests.
 
-Every decision lives in `src/topRow.ts`, `src/settings.ts`, `src/switches.ts`
-and `src/windowButtons.ts`, which import neither Obsidian nor Electron and have
-unit tests. `src/main.ts` only reads the pointer, the window and the DOM, and
+Every decision lives in `src/topRow.ts`, `src/settings.ts`, `src/switches.ts`,
+`src/windowButtons.ts` and `src/tableSpans.ts`, which import neither Obsidian
+nor Electron and have unit tests. `src/tableCells.ts` marks a table's cells
+through a small interface the tests stand in for. `src/main.ts` only reads the pointer, the window and the DOM, and
 applies the answer. `tests/styles.test.ts` holds the stylesheet's scopes — each
 one a class Obsidian reuses elsewhere, got wrong once and measured — and fails
 in the forbidden direction for every one of them.
