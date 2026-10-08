@@ -481,3 +481,22 @@ body.klartext-hide-base-toolbar.is-phone .workspace-split.mod-root .workspace-le
 body.klartext-align-window-buttons.mod-macos.is-hidden-frameless {
   --traffic-lights-offset-y: 32px;
 }
+
+/* ── Table cells reaching down ───────────────────────────────────────────────
+   src/tableCells.ts marks a cell that reaches down over the rows below it
+   (with its rowspan) and the cells it covers, in Reading view and in Live
+   Preview's table widget. Not a switch class: the marks are only there while
+   the switch is on, and go with it.
+   A reaching cell is centred both ways whatever its column says; Obsidian
+   writes a column's alignment inline on every cell, hence !important.
+   A covered cell takes no place in the table, so the cell above reaches into
+   its room; it is hidden rather than removed, so the table widget keeps its
+   own count of cells. */
+td.klartext-cell-reaching {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+td.klartext-cell-covered {
+  display: none !important;
+}

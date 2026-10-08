@@ -7,7 +7,7 @@ const context = await esbuild.context({
   banner: { js: "/* Klartext plugin — bundled by esbuild; the source is in src/. */" },
   entryPoints: ["src/main.ts"],
   bundle: true,
-  external: ["obsidian", "electron"],
+  external: ["obsidian", "electron", "@codemirror/state", "@codemirror/view"],
   format: "cjs",
   target: "es2020",
   logLevel: "info",

@@ -5,6 +5,15 @@ generated notes.
 
 ## [Unreleased]
 
+### Added
+
+- **A table cell can reach down** (Tables → Let a cell reach down over missing
+  cells, off by default). A row with fewer cells than the header leaves its
+  last columns to the cell above, which then spans the rows down to the next
+  one that has the cell again, its text centred. Empty cells stay cells, the
+  header never reaches down, and the note is not changed. In Reading view and
+  Live Preview.
+
 ## [0.5.3] — 2026-10-02
 
 ### Fixed

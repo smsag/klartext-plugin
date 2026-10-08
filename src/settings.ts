@@ -31,6 +31,8 @@ export interface KlartextSettings {
   hidePhoneButtons: boolean;
   /** Phone: a base's toolbar slides away while the base is scrolled down. */
   hideBaseToolbarOnScroll: boolean;
+  /** A table row with fewer cells than the header leaves its last columns to the cell above. */
+  mergeTableCells: boolean;
 }
 
 /** Installing the plugin is the choice of a quiet top row, so that part is on;
@@ -55,6 +57,7 @@ export const DEFAULT_SETTINGS: KlartextSettings = {
   hidePhoneTitle: false,
   hidePhoneButtons: false,
   hideBaseToolbarOnScroll: false,
+  mergeTableCells: false,
 };
 
 export function normalizeSettings(raw: unknown): KlartextSettings {

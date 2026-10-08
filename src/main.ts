@@ -1,10 +1,12 @@
 // Wiring: read the settings, the pointer, the window and the DOM; ask the
-// pure modules; apply. Two jobs:
+// pure modules; apply. Three jobs:
 //
 //   * the furniture switches — body classes from the settings, which
 //     styles.css turns into what is hidden (src/switches.ts);
 //   * the top row on hover, and the macOS window buttons with it, in every
-//     window: the main one and each pop-out keep their own row (RowWindow).
+//     window: the main one and each pop-out keep their own row (RowWindow);
+//   * table cells reaching down, in Reading view and Live Preview
+//     (src/tableCells.ts).
 //
 // Why the pointer is polled rather than followed with mouse events: with the
 // window frame hidden, the top strip is the window's drag handle, and macOS
@@ -12,11 +14,12 @@
 // never learn the pointer had arrived — or, once it is showing, that the
 // pointer had left. Electron's own cursor position is not blind there.
 
-import { Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, type App } from "obsidian";
+import { MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, type App } from "obsidian";
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
 import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
 import { BaseToolbars } from "./baseToolbarWiring";
+import { livePreviewExtension, readingProcessor, refreshLivePreview } from "./tableCells";
 import {
   INITIAL,
   anyResizing,
@@ -225,11 +228,14 @@ export default class KlartextPlugin extends Plugin {
   /** Each distinct failure is logged once, then counted: a poll runs twenty
    *  times a second, and a console that scrolls the same line is no report. */
   private readonly reported = new Map<string, number>();
+  /** Whether the tables were last drawn with cells reaching down. */
+  private mergedTables = false;
   /** A base's toolbar on a phone, while its switch is on. */
   private readonly baseToolbars = new BaseToolbars(document, this.counters);
 
   override async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
+    this.mergedTables = this.settings.mergeTableCells;
     this.addSettingTab(new KlartextSettingTab(this.app, this));
     this.applySwitches();
     this.addCommand({
@@ -239,6 +245,13 @@ export default class KlartextPlugin extends Plugin {
     });
 
     this.syncBaseScroll();
+
+    // Registered whatever the switch says, and asked on every table: turning
+    // it on or off then needs no reload, only the tables drawn again.
+    const merge = () => this.settings.mergeTableCells;
+    this.registerMarkdownPostProcessor(readingProcessor(merge));
+    this.registerEditorExtension(livePreviewExtension(merge));
+
     // Whatever replaces a base in its leaf, or moves to another one, shows the
     // toolbar again: a short base cannot be scrolled back to bring it.
     this.registerEvent(this.app.workspace.on("layout-change", () => this.baseToolbars.sync()));
@@ -287,6 +300,16 @@ export default class KlartextPlugin extends Plugin {
     this.windows.clear();
     document.body.removeClass(ACTIVE_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
     this.baseToolbars.stop();
+    // Live Preview's tables lose their marks with the editor extension; Reading
+    // view's keep them until drawn again.
+    if (this.settings.mergeTableCells) this.redrawReadingViews();
+  }
+
+  /** Draw every open note's Reading view again, so its tables follow the switch. */
+  private redrawReadingViews(): void {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.view instanceof MarkdownView) leaf.view.previewMode.rerender(true);
+    });
   }
 
   /** The toolbar is followed while its switch is on, on a phone, and not
@@ -297,7 +320,13 @@ export default class KlartextPlugin extends Plugin {
   }
 
   async saveSettings(): Promise<void> {
+    const merged = this.mergedTables;
     await this.saveData(this.settings);
+    if (this.settings.mergeTableCells !== merged) {
+      this.mergedTables = this.settings.mergeTableCells;
+      this.redrawReadingViews();
+      refreshLivePreview();
+    }
     this.applySwitches();
     this.syncBaseScroll();
     for (const row of this.windows.values()) {
@@ -555,6 +584,15 @@ class KlartextSettingTab extends PluginSettingTab {
 
     new Setting(el).setName("Hide").setHeading();
     for (const s of HIDE_SWITCHES) this.switchToggle(s, here);
+
+    new Setting(el).setName("Tables").setHeading();
+    this.toggle(
+      "Let a cell reach down over missing cells",
+      "A table row with fewer cells than the header leaves its last columns to the cell above: that cell reaches " +
+        "down over the row, to the next row that has the cell again, its text centred. An empty cell (| |) stays " +
+        "a cell, and the header never reaches down. In Reading view and Live Preview; the note is not changed.",
+      "mergeTableCells",
+    );
   }
 
   private switchToggle(s: Switch, here: PlatformFlags): void {
