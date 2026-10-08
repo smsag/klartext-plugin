@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-08
+
 ### Added
 
 - **A table cell can reach down** (Tables → Let a cell reach down over missing
