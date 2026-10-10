@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-10-10
+
 ### Added
 
 - **The theme's task markers** (Tasks → Draw the theme's task markers, off by
