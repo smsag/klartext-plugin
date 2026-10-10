@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../src/settings";
-import { ALL_SWITCHES, availableOn, switchClasses } from "../src/switches";
+import { ALL_SWITCHES, TASK_MARKERS, TASK_MARKERS_CLASS, availableOn, switchClasses } from "../src/switches";
 
 describe("the furniture switches", () => {
-  it("are seventeen, one per setting that is not the top row's own or the tables'", () => {
+  it("are seventeen, one per setting that is not the top row's own, the tables' or the tasks'", () => {
     const keys = ALL_SWITCHES.map((s) => s.key).sort();
-    const own = ["topRowOnHover", "hideWindowButtons", "mergeTableCells"];
+    const own = ["topRowOnHover", "hideWindowButtons", "mergeTableCells", "themeTaskMarkers"];
     const expected = Object.keys(DEFAULT_SETTINGS).filter((k) => !own.includes(k)).sort();
     expect(keys).toEqual(expected);
     expect(keys).toHaveLength(17);
@@ -62,6 +62,27 @@ describe("availableOn", () => {
       if (/^macOS only/.test(s.desc)) expect(s.only, s.key).toBe("macos");
       if (/^Desktop only/.test(s.desc)) expect(s.only, s.key).toBe("desktop");
       if (/^Phone only/.test(s.desc)) expect(s.only, s.key).toBe("phone");
+    }
+  });
+});
+
+describe("the theme's task markers", () => {
+  it("are off by default, so a theme's extra marker looks like an open task until asked for", () => {
+    expect(DEFAULT_SETTINGS.themeTaskMarkers).toBe(false);
+  });
+
+  it("set a class of their own, outside the furniture switches", () => {
+    expect(ALL_SWITCHES.map((s) => s.cls)).not.toContain(TASK_MARKERS_CLASS);
+    expect(switchClasses({ ...DEFAULT_SETTINGS, themeTaskMarkers: true })).toEqual([]);
+  });
+
+  it("name single characters, once each, and none of the four the theme always draws", () => {
+    const markers = TASK_MARKERS.map((m) => m.marker);
+    expect(new Set(markers).size).toBe(markers.length);
+    for (const m of TASK_MARKERS) {
+      expect(m.marker).toHaveLength(1);
+      expect(m.meaning.length, m.marker).toBeGreaterThan(0);
+      expect([" ", "/", "-", "x", "X"]).not.toContain(m.marker);
     }
   });
 });

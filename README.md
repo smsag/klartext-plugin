@@ -15,6 +15,10 @@ rows below it. That is how a table looks, so by the split it would be the
 theme's, but a stylesheet cannot do it (see below), and it works under any
 theme.
 
+One switch is only a request to the theme: **the theme's task markers**
+(Tasks, off by default). The plugin draws nothing for it; it sets a class the
+Klartext theme draws its extra task boxes under (see below).
+
 ## The switches
 
 | Setting | Default | Does |
@@ -153,6 +157,32 @@ Here the last `content` fills column 3 for all three rows.
 - **Hidden, not removed.** A covered cell is taken out of the layout, not out
   of the table: Live Preview's table widget keeps its own count of cells for
   editing and moving between them.
+
+## Tasks: the theme's markers
+
+Obsidian ticks a box for any character between the brackets; what `[/]` or
+`[?]` means is a theme's convention. The four everyone uses, `[ ]` open,
+`[/]` in progress, `[-]` cancelled and `[x]` done, are not part of this switch.
+With *Draw the theme's task markers* on (Tasks, off by default) it also draws
+the set the Minimal theme made common, each with a box of its own:
+
+| Marker | Meaning | Marker | Meaning | Marker | Meaning |
+| --- | --- | --- | --- | --- | --- |
+| `[>]` | forwarded | `[*]` | star | `[I]` | idea |
+| `[<]` | scheduled | `["]` | quote | `[p]` | pro |
+| `[?]` | question | `[l]` | location | `[c]` | con |
+| `[!]` | important | `[b]` | bookmark | `[f]` | fire |
+| `[i]` | information | `[S]` | savings | `[k]` | key |
+| `[w]` | win | `[u]` | up | `[d]` | down |
+
+- **Off, they are open tasks.** Without the switch a task marked `[>]` looks
+  like `[ ]`, which is what it is to anything that counts.
+- **Either way, open work.** The switch changes how a box looks, never what it
+  means: Schreibstube counts every one of these as a task still to do.
+- **The plugin holds the choice, the theme the look.** The switch sets
+  `klartext-task-markers` on the window's body and the theme keys its boxes
+  on it; the plugin's own stylesheet has no rule for it. Under another theme
+  nothing changes.
 
 ## Not here, on purpose
 
