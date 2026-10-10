@@ -16,7 +16,7 @@
 
 import { MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, type App } from "obsidian";
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
-import { ALL_SWITCHES, HIDE_SWITCHES, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
+import { ALL_SWITCHES, HIDE_SWITCHES, TASK_MARKERS, TASK_MARKERS_CLASS, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
 import { BaseToolbars } from "./baseToolbarWiring";
 import { livePreviewExtension, readingProcessor, refreshLivePreview } from "./tableCells";
@@ -292,7 +292,7 @@ export default class KlartextPlugin extends Plugin {
     this.stopLoop();
     for (const row of this.windows.values()) {
       row.dispose();
-      row.body.removeClass(ACTIVE_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
+      row.body.removeClass(ACTIVE_CLASS, TASK_MARKERS_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
       // With the class gone the variable is Obsidian's default again, and the
       // same formula puts the buttons back where Obsidian would.
       row.placeButtons();
@@ -393,6 +393,7 @@ export default class KlartextPlugin extends Plugin {
     for (const row of this.windows.values()) bodies.add(row.body);
     for (const body of bodies) {
       for (const s of ALL_SWITCHES) body.toggleClass(s.cls, on.has(s.cls));
+      body.toggleClass(TASK_MARKERS_CLASS, this.settings.themeTaskMarkers);
       body.toggleClass(ACTIVE_CLASS, this.settings.topRowOnHover && this.cursor !== null);
     }
   }
@@ -592,6 +593,16 @@ class KlartextSettingTab extends PluginSettingTab {
         "down over the row, to the next row that has the cell again, its text centred. An empty cell (| |) stays " +
         "a cell, and the header never reaches down. In Reading view and Live Preview; the note is not changed.",
       "mergeTableCells",
+    );
+
+    new Setting(el).setName("Tasks").setHeading();
+    this.toggle(
+      "Draw the theme's task markers",
+      "The Klartext theme gives a task its own box for each marker popular themes use beyond the usual four (" +
+        TASK_MARKERS.map((m) => `[${m.marker}] ${m.meaning}`).join(", ") +
+        "). Off, they look like an open task. Either way a task carrying one is open work: Schreibstube counts it " +
+        "as to do. Needs the Klartext theme; under another theme nothing changes.",
+      "themeTaskMarkers",
     );
   }
 

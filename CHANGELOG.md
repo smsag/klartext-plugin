@@ -5,6 +5,15 @@ generated notes.
 
 ## [Unreleased]
 
+### Added
+
+- **The theme's task markers** (Tasks → Draw the theme's task markers, off by
+  default). Asks the Klartext theme to give each marker the Minimal theme made
+  common — `[>]` forwarded, `[?]` question, `[!]` important and the rest — a
+  box of its own. Off, they look like an open task. Either way they are open
+  work: Schreibstube counts them as to do. The plugin only sets the class;
+  the theme draws the boxes.
+
 ## [0.6.0] — 2026-10-08
 
 ### Added

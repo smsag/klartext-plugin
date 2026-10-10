@@ -8,7 +8,7 @@
 
 import type { KlartextSettings } from "./settings";
 
-export type SwitchKey = Exclude<keyof KlartextSettings, "topRowOnHover" | "hideWindowButtons" | "mergeTableCells">;
+export type SwitchKey = Exclude<keyof KlartextSettings, "topRowOnHover" | "hideWindowButtons" | "mergeTableCells" | "themeTaskMarkers">;
 
 export interface Switch {
   key: SwitchKey;
@@ -178,3 +178,39 @@ export const ALL_SWITCHES: readonly Switch[] = [...TOP_ROW_SWITCHES, ...HIDE_SWI
 export function switchClasses(settings: KlartextSettings): string[] {
   return ALL_SWITCHES.filter((s) => settings[s.key]).map((s) => s.cls);
 }
+
+/**
+ * The class the Klartext theme keys its extra task boxes on. It is not a
+ * furniture switch: the plugin draws nothing for it, because how a box looks
+ * is the theme's, and styles.css holding no rule for it is the point. The
+ * plugin only says whether the boxes are wanted, so the choice sits beside the
+ * other switches and syncs with them.
+ */
+export const TASK_MARKERS_CLASS = "klartext-task-markers";
+
+/**
+ * The markers the theme draws while the class is on, as the Minimal theme and
+ * its relatives use them. `[ ]`, `[/]`, `[-]` and `[x]` are not among them:
+ * the theme draws those either way. Whatever a marker looks like, a task
+ * carrying one is open work to anything that counts tasks.
+ */
+export const TASK_MARKERS: readonly { marker: string; meaning: string }[] = [
+  { marker: ">", meaning: "forwarded" },
+  { marker: "<", meaning: "scheduled" },
+  { marker: "?", meaning: "question" },
+  { marker: "!", meaning: "important" },
+  { marker: "*", meaning: "star" },
+  { marker: '"', meaning: "quote" },
+  { marker: "l", meaning: "location" },
+  { marker: "b", meaning: "bookmark" },
+  { marker: "i", meaning: "information" },
+  { marker: "S", meaning: "savings" },
+  { marker: "I", meaning: "idea" },
+  { marker: "p", meaning: "pro" },
+  { marker: "c", meaning: "con" },
+  { marker: "f", meaning: "fire" },
+  { marker: "k", meaning: "key" },
+  { marker: "w", meaning: "win" },
+  { marker: "u", meaning: "up" },
+  { marker: "d", meaning: "down" },
+];

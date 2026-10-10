@@ -33,6 +33,8 @@ export interface KlartextSettings {
   hideBaseToolbarOnScroll: boolean;
   /** A table row with fewer cells than the header leaves its last columns to the cell above. */
   mergeTableCells: boolean;
+  /** The theme draws its own boxes for the task markers beyond Markdown's two and Obsidian's usual four. */
+  themeTaskMarkers: boolean;
 }
 
 /** Installing the plugin is the choice of a quiet top row, so that part is on;
@@ -58,6 +60,7 @@ export const DEFAULT_SETTINGS: KlartextSettings = {
   hidePhoneButtons: false,
   hideBaseToolbarOnScroll: false,
   mergeTableCells: false,
+  themeTaskMarkers: false,
 };
 
 export function normalizeSettings(raw: unknown): KlartextSettings {

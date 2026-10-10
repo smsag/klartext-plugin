@@ -4,7 +4,7 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { ALL_SWITCHES } from "../src/switches";
+import { ALL_SWITCHES, TASK_MARKERS_CLASS } from "../src/switches";
 
 const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
@@ -311,5 +311,11 @@ describe("a base's toolbar while scrolling", () => {
     expect(moving.length).toBeGreaterThan(0);
     for (const r of moving) for (const a of r.arms) expect(a).toContain(".klartext-base-toolbar-settling");
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*klartext-base-toolbar-settling[^}]*\{\s*transition:\s*none/);
+  });
+});
+
+describe("the theme's task markers", () => {
+  it("are the theme's to draw: the plugin's stylesheet has no rule on their class", () => {
+    expect(keyedOn(TASK_MARKERS_CLASS)).toEqual([]);
   });
 });
