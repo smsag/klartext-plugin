@@ -1,6 +1,6 @@
 {
   "name": "klartext-plugin",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "license": "MIT",
   "description": "Obsidian's furniture on your terms: the top row (tabs, back and forward, macOS window buttons) only while the pointer is at the top, and switches to hide the status bar, scroll bars, tooltips and more.",

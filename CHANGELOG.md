@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-10-21
+
 ### Fixed
 
 - **On macOS the top row hides again after the pointer leaves through it.**
