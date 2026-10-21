@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-10-21
+
 ### Added
 
 - **A quote's markers** (Text → Keep a quote's markers, on by default). A
