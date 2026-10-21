@@ -1,6 +1,11 @@
 # The same gate the release runs, on every push and pull request: unit tests,
 # typecheck (sources and tests) and the production build. A release should
 # never be the first run to find a failure.
+#
+# Supply chain: actions are pinned to a commit (a tag can be moved), the
+# checkout keeps no token on disk, and dependencies install without running
+# their install scripts. The bundle has no runtime dependencies; the audit
+# covers the tools that build it.
 name: CI
 
 on:
@@ -20,15 +25,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run check
-      - name: manifest.json and package.json carry the same version
+      - name: No known vulnerability of high severity in the build tools
+        run: npm audit --audit-level=high
+      - name: manifest.json, package.json and package-lock.json carry the same version
         run: |
           m="$(node -p "require('./manifest.json').version")"
           p="$(node -p "require('./package.json').version")"
-          if [ "$m" != "$p" ]; then echo "::error::manifest.json says $m, package.json says $p."; exit 1; fi
+          l="$(node -p "require('./package-lock.json').version")"
+          if [ "$m" != "$p" ] || [ "$p" != "$l" ]; then
+            echo "::error::manifest.json says $m, package.json $p, package-lock.json $l."
+            exit 1
+          fi

@@ -29,10 +29,19 @@ body.klartext-top-row:not([data-klartext-top-row="hidden"]) .workspace-split.mod
   opacity: 1;
 }
 
+/* For someone who asked for less motion, the row is there or not, without
+   the fade. */
+@media (prefers-reduced-motion: reduce) {
+  body.klartext-top-row .workspace-split.mod-root .workspace-tabs.mod-top > .workspace-tab-header-container,
+  body.klartext-top-row .workspace-split.mod-root .workspace-tabs.mod-top .workspace-leaf-content > .view-header {
+    transition: none;
+  }
+}
+
 /* ------------------------------------------------------------------
    OBSIDIAN'S FURNITURE  (each switch off until it is turned on)
 
-   Fifteen switches for parts of Obsidian's furniture, each a body class the
+   Seventeen switches for parts of Obsidian's furniture, each a body class the
    plugin sets from its own settings. Nearly all of them are a
    `display: none`. Where Obsidian provides a lever for the job — a token, a
    marker class, its own condition for when the window buttons are there —
@@ -508,8 +517,9 @@ td.klartext-cell-covered {
    and has a dictionary for: src/hyphenation.ts puts the note's language, read
    from its words, on the note and on any block written in another one.
    Reading view and Live Preview; Source mode shows the Markdown as typed.
-   Headings, code, links and properties stay whole: a heading is set to be
-   read at a glance, and code, a link or a property is something to copy.
+   Headings, code, links, tags, keys, maths and properties stay whole: a
+   heading is set to be read at a glance, and the rest is something to copy
+   or type as written.
    -webkit- for the WebKit of older iOS versions. */
 body.klartext-hyphenate .markdown-rendered,
 body.klartext-hyphenate .markdown-source-view.is-live-preview .cm-content {
@@ -517,8 +527,8 @@ body.klartext-hyphenate .markdown-source-view.is-live-preview .cm-content {
   hyphens: auto;
 }
 
-body.klartext-hyphenate .markdown-rendered :is(h1, h2, h3, h4, h5, h6, code, pre, a, .metadata-container),
-body.klartext-hyphenate .markdown-source-view.is-live-preview .cm-content :is(.HyperMD-header, .HyperMD-codeblock, .cm-inline-code, .cm-link, .cm-url, .cm-hmd-internal-link, code, pre, a, h1, h2, h3, h4, h5, h6) {
+body.klartext-hyphenate .markdown-rendered :is(h1, h2, h3, h4, h5, h6, code, pre, a, kbd, .tag, .math, .metadata-container),
+body.klartext-hyphenate .markdown-source-view.is-live-preview .cm-content :is(.HyperMD-header, .HyperMD-codeblock, .cm-inline-code, .cm-link, .cm-url, .cm-hmd-internal-link, .cm-hashtag, .cm-math, .math, code, pre, a, kbd, h1, h2, h3, h4, h5, h6) {
   -webkit-hyphens: manual;
   hyphens: manual;
 }

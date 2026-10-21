@@ -38,7 +38,10 @@ export const MIN_HITS = 3;
  * about the note's language.
  */
 export function proseOf(markdown: string): string {
+  // A note written on Windows ends its lines in \r\n: the patterns below
+  // match \n, and a frontmatter block would otherwise count as prose.
   return markdown
+    .replace(/\r\n?/g, "\n")
     .replace(/^---\n[\s\S]*?\n---(\n|$)/, "")
     .replace(/^(```|~~~)[^\n]*\n[\s\S]*?(?:^\1[^\n]*$|(?![\s\S]))/gm, " ")
     .replace(/`[^`\n]*`/g, " ")
@@ -57,8 +60,8 @@ export function detectLanguage(text: string): string | null {
   for (const m of text.toLowerCase().matchAll(/\p{L}+/gu)) {
     const word = m[0];
     const langs = INDEX.get(word);
-    // A word several languages share counts for each, split: "de" says
-    // little, "und" says German.
+    // A word several languages share counts for each, split: "is" (English
+    // and Dutch) says little, "und" says German.
     if (langs) for (const lang of langs) score.set(lang, (score.get(lang) ?? 0) + 1 / langs.length);
     else if (/[äöüß]/.test(word)) score.set("de", (score.get("de") ?? 0) + 0.5);
   }
@@ -78,9 +81,12 @@ export function detectLanguage(text: string): string | null {
   return best;
 }
 
-/** The note's language from its Markdown: read from the first stretch, which
- *  is plenty, so a long note costs no more than a short one. */
-export function noteLanguage(markdown: string, limit = 20000): string | null {
+/** How much of a note its language is read from: plenty to tell, and a long
+ *  note costs no more than a short one. */
+export const NOTE_SAMPLE = 20000;
+
+/** The note's language from its Markdown, read from its first stretch. */
+export function noteLanguage(markdown: string, limit = NOTE_SAMPLE): string | null {
   return detectLanguage(proseOf(markdown.slice(0, limit)));
 }
 
