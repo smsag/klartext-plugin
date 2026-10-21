@@ -5,7 +5,7 @@ import { ALL_SWITCHES, TASK_MARKERS, TASK_MARKERS_CLASS, availableOn, switchClas
 describe("the furniture switches", () => {
   it("are seventeen, one per setting that is not the top row's own, the tables', the tasks' or the text's", () => {
     const keys = ALL_SWITCHES.map((s) => s.key).sort();
-    const own = ["topRowOnHover", "hideWindowButtons", "mergeTableCells", "themeTaskMarkers", "hyphenate"];
+    const own = ["topRowOnHover", "hideWindowButtons", "mergeTableCells", "themeTaskMarkers", "hyphenate", "quotePaste"];
     const expected = Object.keys(DEFAULT_SETTINGS).filter((k) => !own.includes(k)).sort();
     expect(keys).toEqual(expected);
     expect(keys).toHaveLength(17);

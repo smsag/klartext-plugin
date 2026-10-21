@@ -5,6 +5,19 @@ generated notes.
 
 ## [Unreleased]
 
+### Added
+
+- **Pasted lines stay in their quote** (Text → Keep pasted lines in their
+  quote, on by default). A paste of several lines into a quote or callout
+  gives every line its `>`, at the quote's depth, and a line break the paste
+  starts with no longer pushes its first line out under `> [!quote]`. HTML is
+  converted as Obsidian would; files, single lines, code blocks and quotes
+  pasted into quotes are left to Obsidian.
+- **Command: Put lines that slipped out of a quote back in.** Adds the
+  missing `>` to the lines Markdown already counts as a quote's in the
+  current note, in one undoable step; the note looks the same afterwards.
+- Diagnostics count quoted pastes and repaired lines.
+
 ## [0.8.0] — 2026-10-21
 
 ### Added

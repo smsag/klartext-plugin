@@ -1,5 +1,5 @@
 // Wiring: read the settings, the pointer, the window and the DOM; ask the
-// pure modules; apply. Four jobs:
+// pure modules; apply. Five jobs:
 //
 //   * the furniture switches — body classes from the settings, which
 //     styles.css turns into what is hidden (src/switches.ts);
@@ -8,7 +8,9 @@
 //   * table cells reaching down, in Reading view and Live Preview
 //     (src/tableCells.ts);
 //   * the note's language for automatic hyphenation, in the same two
-//     (src/hyphenation.ts).
+//     (src/hyphenation.ts);
+//   * every line of a quote keeping its ">": on a paste, and on request for a
+//     whole note (src/quotes.ts).
 //
 // Why the pointer is polled rather than followed with mouse events: with the
 // window frame hidden, the top strip is the window's drag handle, and macOS
@@ -16,7 +18,7 @@
 // never learn the pointer had arrived — or, once it is showing, that the
 // pointer had left. Electron's own cursor position is not blind there.
 
-import { MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, getLanguage, type App } from "obsidian";
+import { MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, getLanguage, htmlToMarkdown, type App, type Editor } from "obsidian";
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
 import { ALL_SWITCHES, HIDE_SWITCHES, TASK_MARKERS, TASK_MARKERS_CLASS, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
@@ -24,6 +26,7 @@ import { BaseToolbars } from "./baseToolbarWiring";
 import { livePreviewExtension, readingProcessor, refreshLivePreview } from "./tableCells";
 import { HYPHENATE_CLASS, hyphenationExtension, hyphenationProcessor, refreshHyphenation } from "./hyphenation";
 import { fallbackLanguage } from "./language";
+import { inFencedCode, lazyLines, quotePaste } from "./quotes";
 import {
   INITIAL,
   anyResizing,
@@ -216,6 +219,10 @@ interface Counters {
    *  number that grows while baseToolbarChanges stays 0 means Obsidian now
    *  scrolls a different element, and the switch has nothing to follow. */
   baseScrollsIgnored: number;
+  /** Pastes into a quote whose lines were given its ">". */
+  quotedPastes: number;
+  /** Lines the repair command put back into their quote. */
+  quoteLinesRepaired: number;
 }
 
 export default class KlartextPlugin extends Plugin {
@@ -227,7 +234,7 @@ export default class KlartextPlugin extends Plugin {
   private readonly windows = new Map<Window, RowWindow>();
   /** The poll loop, running only while the top row fades. */
   private loop: number | null = null;
-  private readonly counters: Counters = { ticks: 0, cursorReads: 0, boundsReads: 0, skippedWhileResizing: 0, bandMeasures: 0, errors: 0, baseToolbarChanges: 0, baseScrollsIgnored: 0 };
+  private readonly counters: Counters = { ticks: 0, cursorReads: 0, boundsReads: 0, skippedWhileResizing: 0, bandMeasures: 0, errors: 0, baseToolbarChanges: 0, baseScrollsIgnored: 0, quotedPastes: 0, quoteLinesRepaired: 0 };
   private readonly startedAt = Date.now();
   /** Each distinct failure is logged once, then counted: a poll runs twenty
    *  times a second, and a console that scrolls the same line is no report. */
@@ -250,6 +257,19 @@ export default class KlartextPlugin extends Plugin {
       name: "Copy diagnostics",
       callback: () => void this.copyDiagnostics(),
     });
+    this.addCommand({
+      id: "repair-quotes",
+      name: "Put lines that slipped out of a quote back in",
+      editorCallback: (editor) => this.repairQuotes(editor),
+    });
+    this.registerEvent(this.app.workspace.on("editor-paste", (evt, editor) => {
+      try {
+        this.pasteIntoQuote(evt, editor);
+      } catch (e) {
+        // Nothing was inserted yet: Obsidian's own paste goes ahead.
+        this.report("a paste into a quote", e);
+      }
+    }));
 
     this.syncBaseScroll();
 
@@ -530,6 +550,50 @@ export default class KlartextPlugin extends Plugin {
     }
   }
 
+  /** A paste into a quote or callout, with every pasted line given its ">".
+   *  Anything this does not handle is left to Obsidian's own paste. */
+  private pasteIntoQuote(evt: ClipboardEvent, editor: Editor): void {
+    if (!this.settings.quotePaste || evt.defaultPrevented) return;
+    const data = evt.clipboardData;
+    // Files are Obsidian's to attach; several cursors, Obsidian's to fill.
+    if (!data || data.files.length > 0 || editor.listSelections().length !== 1) return;
+    const from = editor.getCursor("from");
+    const before = editor.getLine(from.line).slice(0, from.ch);
+    // Cheap test first: most pastes are not into a quote at all.
+    if (!/^[ \t]*>/.test(before)) return;
+    const pasted = this.pastedMarkdown(data);
+    if (pasted === null) return;
+    const text = quotePaste(before, pasted);
+    if (text === null) return;
+    // A ">" in a code block is code, and so is the paste.
+    if (inFencedCode(editor.getValue().split("\n"), from.line)) return;
+    evt.preventDefault();
+    editor.replaceSelection(text);
+    this.counters.quotedPastes++;
+  }
+
+  /** The clipboard as Obsidian would paste it: HTML turned into Markdown
+   *  when its "Auto convert HTML" is on (the default), else the plain text. */
+  private pastedMarkdown(data: DataTransfer): string | null {
+    const html = data.getData("text/html");
+    const config = (this.app.vault as unknown as { getConfig?: (key: string) => unknown }).getConfig?.("autoConvertHtml");
+    if (html && config !== false) return htmlToMarkdown(html);
+    const plain = data.getData("text/plain");
+    return plain === "" ? null : plain;
+  }
+
+  /** Every lazy line of the note given its ">", in one undoable step. */
+  private repairQuotes(editor: Editor): void {
+    const lazy = lazyLines(editor.getValue());
+    if (lazy.length === 0) {
+      new Notice("Klartext: every line of this note's quotes already has its >.");
+      return;
+    }
+    editor.transaction({ changes: lazy.map(({ line, insert }) => ({ from: { line, ch: 0 }, text: insert })) });
+    this.counters.quoteLinesRepaired += lazy.length;
+    new Notice(`Klartext: ${lazy.length} ${lazy.length === 1 ? "line" : "lines"} put back into ${lazy.length === 1 ? "its quote" : "their quotes"}.`);
+  }
+
   /** Everything a bug report needs, on the clipboard: no values from the
    *  vault, only the plugin's own state and the platform's shape. */
   private async copyDiagnostics(): Promise<void> {
@@ -633,6 +697,15 @@ class KlartextSettingTab extends PluginSettingTab {
         "its own, and a note too short to tell takes the app's language. Body text, lists, callouts and tables, " +
         "in Reading view and Live Preview; headings, code and links stay whole. The note is not changed.",
       "hyphenate",
+    );
+    this.toggle(
+      "Keep pasted lines in their quote",
+      "Text pasted into a quote or callout gets > on every line, and a line break it starts with no longer " +
+        "pushes its first line out. Without the >, Reading view and Live Preview still draw such lines in the " +
+        "quote, but Source mode shows them outside it, and so does any other Markdown tool. For a note written " +
+        "before, the command \"Put lines that slipped out of a quote back in\" adds the missing > and changes " +
+        "nothing in how the note looks.",
+      "quotePaste",
     );
   }
 
