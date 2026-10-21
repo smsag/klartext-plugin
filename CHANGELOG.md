@@ -7,6 +7,12 @@ generated notes.
 
 ### Fixed
 
+- **On macOS the top row hides again after the pointer leaves through it.**
+  The plugin trusted the page's last sighting of the pointer in the band for
+  as long as no new one came; over the header, a drag region where macOS
+  sends no mouse events, a pointer leaving the window through the top edge
+  left that sighting behind, and the row stayed. A sighting now counts for
+  one fast poll; after that Electron is asked.
 - **A table row with a lone backtick keeps its cells.** A backtick without
   a partner opened inline code to the end of the row, so its pipes stopped
   splitting it and the cell above reached down over the rest. It is now a
@@ -35,11 +41,13 @@ generated notes.
   but its scroller no longer forces a style recalculation; Reading view is
   redrawn once, not twice, when tables and hyphenation change together.
 - **One voice in the console:** every line starts with `[klartext]`, and a
-  repeated failure is logged once.
+  failure is logged once per place, however its message varies.
 - **Release and CI:** actions pinned to commits, no token kept on disk,
-  dependencies installed without their scripts, a high-severity advisory
-  fails CI, the publishing token is kept away from the build, and a release
-  needs its changelog section. Four advisories in the build tools fixed.
+  dependencies installed without their scripts, a weekly audit (and one on
+  every dependency change) for high-severity advisories, the publishing
+  token kept away from the build, a release that needs its changelog section
+  and refuses when it cannot tell whether its tag exists. Four advisories in
+  the build tools fixed.
 
 ### Removed
 

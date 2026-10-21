@@ -16,12 +16,14 @@ describe("warnOnce", () => {
     expect(warn.mock.calls[0]![0]).toContain("the poll");
   });
 
-  it("logs a different failure, or the same one somewhere else, again", () => {
+  it("logs a failure somewhere else again, but not the same place with another message", () => {
+    // Keyed on the message, a failure naming a changing position logged on
+    // every poll and grew the set without end.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    warnOnce("the poll", new Error("gone"));
-    warnOnce("the poll", new Error("other"));
-    warnOnce("a table", new Error("gone"));
-    expect(warn).toHaveBeenCalledTimes(3);
+    warnOnce("the poll", new Error("at 1"));
+    warnOnce("the poll", new Error("at 2"));
+    warnOnce("a table", new Error("at 1"));
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 
   it("says a plain message without an error", () => {
@@ -40,6 +42,17 @@ describe("warnOnce", () => {
 });
 
 describe("guarded", () => {
+  it("passes a promise on, and logs its rejection instead of leaving it unhandled", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ok = guarded("an async job", async (n: number) => n * 2);
+    await expect(ok(2)).resolves.toBe(4);
+    const bad = guarded("an async table", async () => {
+      throw new Error("late");
+    });
+    await expect(bad()).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it("runs the function with its arguments, and logs a throw instead of passing it on", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const seen: number[] = [];

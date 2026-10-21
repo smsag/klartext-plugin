@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_HEADER_CSS,
+  FAST_POLL_MS,
   HIDE_DELAY_MS,
   IDLE_POLL_MS,
   INITIAL,
@@ -12,6 +13,7 @@ import {
   isResizing,
   inTopBand,
   nextState,
+  seenInBand,
   shouldPoll,
   windowButtonsVisible,
 } from "../src/topRow";
@@ -157,6 +159,27 @@ describe("shouldPoll", () => {
   it("asks at the slow rate when the pointer is outside the window or not yet seen", () => {
     expect(shouldPoll({ ...base, pointer: null, now: 10_299, lastPollAt: 10_000 })).toBe(false);
     expect(shouldPoll({ ...base, pointer: null, now: 10_300, lastPollAt: 10_000 })).toBe(true);
+  });
+});
+
+describe("seenInBand", () => {
+  it("trusts the page's own sighting in the band while it is fresh", () => {
+    expect(seenInBand({ y: 10, at: 1_000 }, 40, 1_050)).toBe(true);
+    expect(seenInBand({ y: 50, at: 1_000 }, 40, 1_050)).toBe(false);
+    expect(seenInBand(null, 40, 1_050)).toBe(false);
+  });
+
+  it("stops trusting it once it is older than a fast poll, so Electron is asked instead", () => {
+    // macOS sends no mouse events over the drag-region header: a pointer that
+    // left the window through the top edge left its last sighting in the
+    // band, and the row never hid.
+    expect(seenInBand({ y: 10, at: 1_000 }, 40, 1_000 + FAST_POLL_MS)).toBe(false);
+    expect(seenInBand({ y: 10, at: 1_000 }, 40, 60_000)).toBe(false);
+  });
+
+  it("asks Electron fast while that old sighting sits near the band", () => {
+    const base = { resizing: false, shown: true, lastPollAt: 59_900, bandCss: 40 };
+    expect(shouldPoll({ ...base, now: 60_000, pointer: { y: 10, at: 1_000 } })).toBe(true);
   });
 });
 

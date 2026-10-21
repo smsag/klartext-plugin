@@ -13,6 +13,7 @@ import { StateEffect, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type PluginValue, type ViewUpdate } from "@codemirror/view";
 import type { MarkdownPostProcessorContext } from "obsidian";
 import { NOTE_SAMPLE, blockLanguage, detectLanguage, noteLanguage, proseOf } from "./language";
+import { lastValue } from "./lastValue";
 import { warnOnce } from "./log";
 
 /** The body class styles.css keys hyphenation on. */
@@ -25,20 +26,16 @@ const BLOCKS = "p, li, td, th";
 
 /** The post-processor: the section's language on the section, a block's own on the block. */
 export function hyphenationProcessor(enabled: () => boolean, fallback: () => string) {
-  // Every section of a note is handed the same source: read it once.
-  let lastSource: string | null = null;
-  let lastLang: string | null = null;
+  // Every section of a note is handed the whole note: read its language once.
+  const notes = lastValue((text: string) => noteLanguage(text));
   return (el: HTMLElement, ctx: MarkdownPostProcessorContext): void => {
     if (!enabled()) return;
     // No section info for a part of a note rendered elsewhere (a hover
-    // preview, an embed's heading): then the part itself is all there is.
+    // preview, an embed's heading): then the part itself is all there is,
+    // read on its own and never through the note's cache.
     const info = ctx.getSectionInfo(el);
-    const source = info?.text ?? el.textContent ?? "";
-    if (source !== lastSource) {
-      lastSource = source;
-      lastLang = info ? noteLanguage(source) : detectLanguage(source);
-    }
-    const note = lastLang ?? fallback();
+    const lang = info ? notes.get(info.text) : detectLanguage(el.textContent ?? "");
+    const note = lang ?? fallback();
     el.setAttribute("lang", note);
     el.querySelectorAll<HTMLElement>(BLOCKS).forEach((block) => {
       const own = blockLanguage(block.textContent ?? "", note);

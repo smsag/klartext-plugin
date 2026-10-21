@@ -235,7 +235,8 @@ That would be built as editor decorations, which work under any theme.
 
 Every line the plugin writes to the developer console starts with
 `[klartext]`, so a bug report can be filtered to it. A failure is logged the
-first time it happens and stays quiet when it repeats: the top row polls
+first time it happens in a place (the poll, a table, a note's language) and
+any later failure there stays quiet, whatever its message: the top row polls
 twenty times a second, and a table is drawn again on every keystroke.
 
 Each piece of work that Obsidian or the browser hands the plugin (drawing a
@@ -317,9 +318,11 @@ npm run check   # unit tests, then typecheck (sources and tests) and build
 npm run dev     # rebuild on change
 ```
 
-CI runs the same check on every push and pull request, and fails on a known
-high-severity advisory in the build tools. Actions are pinned to a commit and
-dependencies install with `--ignore-scripts`, in CI and in the release.
+CI runs the same check on every push and pull request. Actions are pinned to
+a commit and dependencies install with `--ignore-scripts`, in CI and in the
+release. The **Audit** workflow fails on a known high-severity advisory in the
+build tools, weekly and on any change to the dependencies, but not on every
+change: an advisory published for a build tool says nothing about a docs fix.
 
 ### Releasing
 

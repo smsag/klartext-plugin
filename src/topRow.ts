@@ -201,6 +201,18 @@ export function anyResizing(now: number, lastResizeAts: Iterable<number>): boole
   return false;
 }
 
+/**
+ * Whether the page's own mouse events say the pointer is in the band, without
+ * asking Electron. Only while the sighting is fresh: over the header, which is
+ * a drag region with the frame hidden, macOS sends no mouse events at all, so
+ * a pointer that crossed it and left the window through the top edge leaves
+ * its last sighting in the band for good, and the row would never hide. Once
+ * the sighting is older than a fast poll, Electron is asked instead.
+ */
+export function seenInBand(pointer: PointerSeen | null, bandCss: number, now: number): boolean {
+  return pointer !== null && pointer.y < bandCss && now - pointer.at < FAST_POLL_MS;
+}
+
 export function shouldPoll(i: PollInput): boolean {
   if (i.resizing) return false;
   const since = i.now - i.lastPollAt;
