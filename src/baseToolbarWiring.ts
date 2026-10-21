@@ -10,6 +10,7 @@
 // search row, never the rows, which a scrolling table rewrites every frame.
 
 import { SETTLE_AFTER_MS, TOOLBAR_UNSEEN, followScroll, settleOffset, type ToolbarScroll } from "./baseToolbar";
+import { guarded } from "./log";
 
 const LEAVES = '.workspace-split.mod-root .workspace-leaf-content[data-type="bases"]';
 
@@ -46,16 +47,18 @@ export class BaseToolbars {
   private readonly tracked = new Map<HTMLElement, Tracked>();
   private touching = false;
   private running = false;
-  private readonly onScroll = (e: Event): void => this.scrolled(e);
+  // Each handler runs inside the browser's event dispatch: a failure is
+  // logged once and costs that event, never the next one.
+  private readonly onScroll = guarded("following a base's scroll", (e: Event): void => this.scrolled(e));
   private readonly onTouchStart = (): void => {
     this.touching = true;
   };
-  private readonly onTouchEnd = (): void => {
+  private readonly onTouchEnd = guarded("settling a base's toolbar", (): void => {
     this.touching = false;
     // The finger lifted: a fling may still carry on (its scroll events put
     // the settle off again), and a toolbar left half way can now settle.
     for (const t of this.tracked.values()) this.scheduleSettle(t);
-  };
+  });
 
   constructor(private readonly doc: Document) {}
 
@@ -113,7 +116,7 @@ export class BaseToolbars {
       band: 0,
       state: TOOLBAR_UNSEEN,
       settle: null,
-      observer: new MutationObserver(() => this.bind(t, false)),
+      observer: new MutationObserver(guarded("finding a base's toolbar", () => this.bind(t, false))),
     };
     this.tracked.set(leaf, t);
     return t;
@@ -136,7 +139,8 @@ export class BaseToolbars {
     const replaced = scroller !== t.scroller || header !== t.header;
     Object.assign(t, { content, scroller, header, searchRow });
 
-    const open = searchRow !== null && searchRow.isConnected && getComputedStyle(searchRow).display !== "none";
+    const view = t.leaf.ownerDocument.defaultView ?? window;
+    const open = searchRow !== null && searchRow.isConnected && view.getComputedStyle(searchRow).display !== "none";
     t.searchOpen = open;
     t.leaf.classList.toggle(SEARCH_OPEN_CLASS, open);
     if (header !== null) {
@@ -162,7 +166,11 @@ export class BaseToolbars {
     const leaf = target.closest<HTMLElement>(LEAVES);
     if (leaf === null) return;
     const t = this.tracked.get(leaf) ?? this.attach(leaf);
-    if (target !== t.scroller) this.bind(t, false);
+    // Find the parts again only when the scroller is gone or not found yet.
+    // A scroll from another element inside the base (a table scrolled
+    // sideways) is not the base's, and re-reading the layout on each of its
+    // events cost a style recalculation per frame.
+    if (t.scroller === null || !t.scroller.isConnected) this.bind(t, false);
     if (target !== t.scroller || t.header === null) return;
     t.state = t.searchOpen
       ? { top: target.scrollTop, offset: 0 }
@@ -176,7 +184,7 @@ export class BaseToolbars {
     if (t.settle !== null) window.clearTimeout(t.settle);
     t.settle = null;
     if (t.state.offset <= 0 || t.state.offset >= t.height) return;
-    t.settle = window.setTimeout(() => this.settle(t), SETTLE_AFTER_MS);
+    t.settle = window.setTimeout(guarded("settling a base's toolbar", () => this.settle(t)), SETTLE_AFTER_MS);
   }
 
   /** Scrolling stopped and no finger is down: a half-way toolbar goes to the

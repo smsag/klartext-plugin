@@ -19,11 +19,16 @@
 // cannot do this: CSS has no rowspan.
 
 /** A row's cells: split at the pipes that are not escaped (`\|`) and not
- *  inside inline code. A pipe at either end frames the row. */
+ *  inside inline code. A pipe at either end frames the row. A backtick run
+ *  opens code only when a run of the same length closes it later in the row;
+ *  an unmatched one is a literal backtick, as in Markdown, and the pipes after
+ *  it still split. */
 export function splitRow(line: string): string[] {
+  const runs = backtickRuns(line);
   const bounds: number[] = [];
   let code = 0;
   let at = 0;
+  let next = 0;
   while (at < line.length) {
     const ch = line[at];
     if (ch === "\\") {
@@ -31,10 +36,13 @@ export function splitRow(line: string): string[] {
       continue;
     }
     if (ch === "`") {
-      let run = 1;
-      while (line[at + run] === "`") run++;
-      code = code === 0 ? run : code === run ? 0 : code;
-      at += run;
+      const run = runs[next++]!;
+      if (code === 0) {
+        if (runs.slice(next).some((r) => r.length === run.length)) code = run.length;
+      } else if (code === run.length) {
+        code = 0;
+      }
+      at += run.length;
       continue;
     }
     if (ch === "|" && code === 0) bounds.push(at);
@@ -52,7 +60,27 @@ export function splitRow(line: string): string[] {
   return cells;
 }
 
-const DELIMITER = /^\|?\s*:?-+:?(?:\s*\|\s*:?-+:?)*\s*\|?$/;
+/** The row's backtick runs that are not escaped, in order, each with its length. */
+function backtickRuns(line: string): { length: number }[] {
+  const runs: { length: number }[] = [];
+  for (let at = 0; at < line.length; ) {
+    if (line[at] === "\\") {
+      at += 2;
+      continue;
+    }
+    if (line[at] !== "`") {
+      at++;
+      continue;
+    }
+    let length = 1;
+    while (line[at + length] === "`") length++;
+    runs.push({ length });
+    at += length;
+  }
+  return runs;
+}
+
+const DELIMITER =/^\|?\s*:?-+:?(?:\s*\|\s*:?-+:?)*\s*\|?$/;
 
 /** The row under a table's header: `| --- | :-: |`. */
 export function isDelimiter(line: string): boolean {

@@ -73,11 +73,5 @@ export function normalizeSettings(raw: unknown): KlartextSettings {
     const value = obj[key];
     if (typeof value === "boolean") out[key] = value;
   }
-  // 0.4 had one switch for the whole note header. It is now the title and the
-  // buttons, and both on is what it did.
-  if (obj.hidePhoneHeader === true && !("hidePhoneTitle" in obj) && !("hidePhoneButtons" in obj)) {
-    out.hidePhoneTitle = true;
-    out.hidePhoneButtons = true;
-  }
   return out;
 }

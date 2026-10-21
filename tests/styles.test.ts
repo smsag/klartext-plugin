@@ -42,6 +42,10 @@ describe("the top row on hover", () => {
     for (const r of hide) for (const a of r.arms) expect(a).toContain('[data-klartext-top-row="hidden"]');
     expect(css).not.toMatch(/klartext-top-row-hidden/);
   });
+
+  it("fades without motion for someone who asked for less", () => {
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*klartext-top-row[^}]*\{\s*transition:\s*none/);
+  });
 });
 
 describe("the tab strip", () => {
@@ -335,7 +339,7 @@ describe("automatic hyphenation", () => {
 
   it("keeps headings, code and links whole in both views, and for older iOS too", () => {
     const body = off().flatMap((r) => r.arms).join(" ");
-    for (const part of ["h1", "code", "pre", " a ", ".HyperMD-header", ".HyperMD-codeblock", ".cm-inline-code", ".cm-hmd-internal-link", ".inline-title"]) {
+    for (const part of ["h1", "code", "pre", " a ", "kbd", ".tag", ".cm-hashtag", ".math", ".HyperMD-header", ".HyperMD-codeblock", ".cm-inline-code", ".cm-hmd-internal-link", ".inline-title"]) {
       expect(body, part).toContain(part);
     }
     for (const r of [...on(), ...off()]) expect(r.body).toMatch(/-webkit-hyphens/);

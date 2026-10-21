@@ -40,6 +40,18 @@ describe("proseOf", () => {
     expect(prose).toContain("Name");
     expect(prose).not.toMatch(/the|https|target|<b>/);
   });
+
+  it("leaves out frontmatter and code in a note written with Windows line endings", () => {
+    const md = "---\r\ntitle: the and of\r\n---\r\nText\r\n```\r\nthe and of to\r\n```\r\n";
+    expect(proseOf(md)).not.toMatch(/the|title/);
+    expect(proseOf(md)).toContain("Text");
+  });
+});
+
+describe("the words several languages share", () => {
+  it("count for each of them, split, and decide nothing on their own", () => {
+    expect(detectLanguage("is is is is is is")).toBeNull();
+  });
 });
 
 describe("noteLanguage and blockLanguage", () => {

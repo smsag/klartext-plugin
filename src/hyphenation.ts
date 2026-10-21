@@ -12,7 +12,8 @@
 import { StateEffect, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type PluginValue, type ViewUpdate } from "@codemirror/view";
 import type { MarkdownPostProcessorContext } from "obsidian";
-import { blockLanguage, detectLanguage, noteLanguage, proseOf } from "./language";
+import { NOTE_SAMPLE, blockLanguage, detectLanguage, noteLanguage, proseOf } from "./language";
+import { warnOnce } from "./log";
 
 /** The body class styles.css keys hyphenation on. */
 export const HYPHENATE_CLASS = "klartext-hyphenate";
@@ -68,18 +69,31 @@ class LanguageLines implements PluginValue {
 
   update(update: ViewUpdate): void {
     const asked = update.transactions.some((tr) => tr.effects.some((e) => e.is(refresh)));
-    if (update.docChanged || asked) this.read(true);
-    else if (update.viewportChanged) this.read(false);
+    // The note's language is read from its first stretch only, so typing
+    // further down changes nothing there: only the lines are read again.
+    const sampleEdited = update.docChanged && update.changes.touchesRange(0, NOTE_SAMPLE);
+    if (asked || sampleEdited) this.read(true);
+    else if (update.docChanged || update.viewportChanged) this.read(false);
   }
 
+  /** The languages again; a failure keeps the last ones and is logged once,
+   *  rather than switching the extension off for the rest of the session. */
   private read(note: boolean): void {
+    try {
+      this.readLanguages(note);
+    } catch (e) {
+      warnOnce("reading a note's language in Live Preview", e);
+    }
+  }
+
+  private readLanguages(note: boolean): void {
     if (!this.enabled()) {
       this.lang = null;
       this.decorations = Decoration.none;
       return;
     }
     const doc = this.view.state.doc;
-    if (note || this.lang === null) this.lang = noteLanguage(doc.sliceString(0, 20000)) ?? this.fallback();
+    if (note || this.lang === null) this.lang = noteLanguage(doc.sliceString(0, NOTE_SAMPLE)) ?? this.fallback();
     // Only the lines on screen: a line scrolled to is read when it arrives.
     const builder = new RangeSetBuilder<Decoration>();
     for (const { from, to } of this.view.visibleRanges) {

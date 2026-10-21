@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../src/settings";
-import { ALL_SWITCHES, TASK_MARKERS, TASK_MARKERS_CLASS, availableOn, switchClasses } from "../src/switches";
+import { ALL_SWITCHES, OWN_SETTINGS, TASK_MARKERS, TASK_MARKERS_CLASS, availableOn, switchClasses } from "../src/switches";
 
 describe("the furniture switches", () => {
   it("are seventeen, one per setting that is not the top row's own, the tables', the tasks' or the text's", () => {
     const keys = ALL_SWITCHES.map((s) => s.key).sort();
-    const own = ["topRowOnHover", "hideWindowButtons", "mergeTableCells", "themeTaskMarkers", "hyphenate"];
+    const own: readonly string[] = OWN_SETTINGS;
     const expected = Object.keys(DEFAULT_SETTINGS).filter((k) => !own.includes(k)).sort();
     expect(keys).toEqual(expected);
     expect(keys).toHaveLength(17);
