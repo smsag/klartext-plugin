@@ -14,6 +14,14 @@ describe("splitRow", () => {
     expect(splitRow("| a \\| b | `c | d` |")).toEqual([" a \\| b ", " `c | d` "]);
   });
 
+  it("treats an unmatched backtick as a literal, so the pipes after it still split", () => {
+    // A lone backtick used to open code to the end of the row: the row read as
+    // one cell, and the cell above reached down over the rest.
+    expect(splitRow("| a ` b | c | d |")).toEqual([" a ` b ", " c ", " d "]);
+    expect(splitRow("| ``a` | b |")).toEqual([" ``a` ", " b "]);
+    expect(splitRow("| `` a | b `` | c |")).toEqual([" `` a | b `` ", " c "]);
+  });
+
   it("finds no cells in a row of nothing but a pipe", () => {
     expect(splitRow("|")).toEqual([]);
   });
