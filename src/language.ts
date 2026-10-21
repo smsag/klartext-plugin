@@ -81,9 +81,12 @@ export function detectLanguage(text: string): string | null {
   return best;
 }
 
-/** The note's language from its Markdown: read from the first stretch, which
- *  is plenty, so a long note costs no more than a short one. */
-export function noteLanguage(markdown: string, limit = 20000): string | null {
+/** How much of a note its language is read from: plenty to tell, and a long
+ *  note costs no more than a short one. */
+export const NOTE_SAMPLE = 20000;
+
+/** The note's language from its Markdown, read from its first stretch. */
+export function noteLanguage(markdown: string, limit = NOTE_SAMPLE): string | null {
   return detectLanguage(proseOf(markdown.slice(0, limit)));
 }
 

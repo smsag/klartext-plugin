@@ -12,6 +12,7 @@
 
 import { ViewPlugin, type EditorView, type PluginValue, type ViewUpdate } from "@codemirror/view";
 import type { MarkdownPostProcessorContext } from "obsidian";
+import { warnOnce } from "./log";
 import { anyReaching, tableSpans } from "./tableSpans";
 
 /** On a cell that reaches down over the rows below it. */
@@ -82,6 +83,9 @@ export function tableLines(lineAt: (n: number) => string | null, first: number, 
 
 /** The post-processor: a rendered section with a table, read from its source. */
 export function readingProcessor(enabled: () => boolean) {
+  // Every section of a note is handed the whole note: split it once, not once per table.
+  let lastText: string | null = null;
+  let lastLines: string[] = [];
   return (el: HTMLElement, ctx: MarkdownPostProcessorContext): void => {
     const table = el.querySelector("table");
     if (!table || !enabled()) return;
@@ -89,7 +93,11 @@ export function readingProcessor(enabled: () => boolean) {
     // a hover preview of a part of a note): then there is no source to read.
     const info = ctx.getSectionInfo(el);
     if (!info) return;
-    const lines = info.text.split("\n");
+    if (info.text !== lastText) {
+      lastText = info.text;
+      lastLines = info.text.split("\n");
+    }
+    const lines = lastLines;
     applySpans(table, tableSpans(tableLines((n) => (n <= info.lineEnd ? lines[n] ?? null : null), info.lineStart)));
   };
 }
@@ -107,6 +115,9 @@ export function refreshLivePreview(): void {
 class TableWatcher implements PluginValue {
   private readonly observer: MutationObserver;
   private frame: number | null = null;
+  /** Whether any table here carries marks: with the switch off and none
+   *  marked, a change in the editor needs no look at its tables at all. */
+  private marked = false;
 
   constructor(private readonly view: EditorView, private readonly enabled: () => boolean) {
     // The widget draws its table after the editor's own update, and redraws
@@ -123,18 +134,24 @@ class TableWatcher implements PluginValue {
     if (update.docChanged || update.viewportChanged) this.schedule();
   }
 
-  /** Once per frame at most, however many changes arrive. */
+  /** Once per frame at most, however many changes arrive; not at all while
+   *  the switch is off and nothing is left to take away. */
   schedule(): void {
-    if (this.frame !== null) return;
+    if (this.frame !== null || (!this.marked && !this.enabled())) return;
     const win = this.view.dom.ownerDocument.defaultView ?? window;
     this.frame = win.requestAnimationFrame(() => {
       this.frame = null;
-      this.apply();
+      try {
+        this.apply();
+      } catch (e) {
+        warnOnce("drawing a table's cells in Live Preview", e);
+      }
     });
   }
 
   private apply(): void {
     const on = this.enabled();
+    this.marked = on;
     const doc = this.view.state.doc;
     this.view.contentDOM.querySelectorAll<HTMLTableElement>(".cm-table-widget table").forEach((table) => {
       if (!on) {

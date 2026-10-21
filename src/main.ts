@@ -24,6 +24,7 @@ import { BaseToolbars } from "./baseToolbarWiring";
 import { livePreviewExtension, readingProcessor, refreshLivePreview } from "./tableCells";
 import { HYPHENATE_CLASS, hyphenationExtension, hyphenationProcessor, refreshHyphenation } from "./hyphenation";
 import { fallbackLanguage } from "./language";
+import { guarded, resetLog, warnOnce } from "./log";
 import {
   INITIAL,
   anyResizing,
@@ -39,7 +40,7 @@ import {
   type TopRowState,
 } from "./topRow";
 
-/** Present while the plugin runs; scopes every rule in styles.css. */
+/** Present while the top row fades on hover; scopes the top row's rules in styles.css. */
 const ACTIVE_CLASS = "klartext-top-row";
 /**
  * Each window's own state, on its own body: "hidden" while the row is hidden.
@@ -49,7 +50,6 @@ const ACTIVE_CLASS = "klartext-top-row";
  * made every window's row follow the main window's pointer.
  */
 const STATE_ATTR = "data-klartext-top-row";
-
 
 /** The window's top row: the root split's tab strip and the headers of its
  *  top panes. A stacked pane further down carries no `mod-top`. */
@@ -83,7 +83,7 @@ function electronOf(win: Window): ElectronModule | null {
   } catch (e) {
     // A build without Electron in reach: the top row stays as it is, and the
     // switches, which are CSS, still load. A throw here used to stop onload.
-    console.warn("[klartext] Electron is not reachable:", e);
+    warnOnce("reaching Electron", e);
     return null;
   }
 }
@@ -186,7 +186,8 @@ class RowWindow {
     try {
       win.setWindowButtonPosition.call(win, position);
     } catch (e) {
-      console.warn("[klartext] could not place the window buttons:", e);
+      // Placed on every settings change and every new window: logged once.
+      warnOnce("placing the window buttons", e);
     }
   }
 
@@ -208,9 +209,6 @@ export default class KlartextPlugin extends Plugin {
   private readonly windows = new Map<Window, RowWindow>();
   /** The poll loop, running only while the top row fades. */
   private loop: number | null = null;
-  /** Each distinct failure is logged once: a poll runs twenty times a
-   *  second, and a console that scrolls the same line is no report. */
-  private readonly reported = new Set<string>();
   /** Whether the tables were last drawn with cells reaching down. */
   private mergedTables = false;
   /** Whether the notes were last drawn with their language for hyphenation. */
@@ -219,7 +217,7 @@ export default class KlartextPlugin extends Plugin {
   private readonly baseToolbars = new BaseToolbars(document);
 
   override async onload(): Promise<void> {
-    this.settings = normalizeSettings(await this.loadData());
+    this.settings = normalizeSettings(await this.readStoredSettings());
     this.mergedTables = this.settings.mergeTableCells;
     this.hyphenated = this.settings.hyphenate;
     this.addSettingTab(new KlartextSettingTab(this.app, this));
@@ -230,21 +228,22 @@ export default class KlartextPlugin extends Plugin {
     // Registered whatever the switch says, and asked on every table: turning
     // it on or off then needs no reload, only the tables drawn again.
     const merge = () => this.settings.mergeTableCells;
-    this.registerMarkdownPostProcessor(readingProcessor(merge));
+    this.registerMarkdownPostProcessor(guarded("drawing a table's cells", readingProcessor(merge)));
     this.registerEditorExtension(livePreviewExtension(merge));
     // The same for the note's language. A note too short to tell takes the
     // app's language: getLanguage arrived in Obsidian 1.8.7.
     const hyphenate = () => this.settings.hyphenate;
     const fallback = () => fallbackLanguage(typeof getLanguage === "function" ? getLanguage() : null, navigator.language);
-    this.registerMarkdownPostProcessor(hyphenationProcessor(hyphenate, fallback));
+    this.registerMarkdownPostProcessor(guarded("reading a note's language", hyphenationProcessor(hyphenate, fallback)));
     this.registerEditorExtension(hyphenationExtension(hyphenate, fallback));
 
     // Whatever replaces a base in its leaf, or moves to another one, shows the
     // toolbar again: a short base cannot be scrolled back to bring it.
-    this.registerEvent(this.app.workspace.on("layout-change", () => this.baseToolbars.sync()));
-    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.baseToolbars.sync()));
-    this.registerEvent(this.app.workspace.on("resize", () => this.baseToolbars.sync(false)));
-    this.registerEvent(this.app.workspace.on("css-change", () => this.baseToolbars.sync(false)));
+    const syncToolbars = guarded("following a base's toolbar", (reset: boolean) => this.baseToolbars.sync(reset));
+    this.registerEvent(this.app.workspace.on("layout-change", () => syncToolbars(true)));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => syncToolbars(true)));
+    this.registerEvent(this.app.workspace.on("resize", () => syncToolbars(false)));
+    this.registerEvent(this.app.workspace.on("css-change", () => syncToolbars(false)));
 
     // The furniture switches are CSS and work everywhere; the top row and the
     // window buttons need Electron, which only a desktop has.
@@ -255,7 +254,7 @@ export default class KlartextPlugin extends Plugin {
     const cursor = loadCursor();
     if (typeof cursor === "string") {
       this.unavailable = cursor;
-      console.warn(`[klartext] the top row stays as it is: ${cursor}`);
+      warnOnce(`the top row stays as it is: ${cursor}`);
       // Silence would look like a plugin that does nothing; say why instead —
       // but only to someone who asked for the fading. With it off nothing is
       // missing, and a notice on every start would be noise.
@@ -290,6 +289,18 @@ export default class KlartextPlugin extends Plugin {
     // Live Preview's tables lose their marks with the editor extension; Reading
     // view's keep them until drawn again.
     if (this.settings.mergeTableCells || this.settings.hyphenate) this.redrawReadingViews();
+    resetLog();
+  }
+
+  /** data.json as stored, or nothing: a file that no longer parses (a sync
+   *  conflict, a hand edit) costs the settings, never the plugin's start. */
+  private async readStoredSettings(): Promise<unknown> {
+    try {
+      return await this.loadData();
+    } catch (e) {
+      warnOnce("reading the settings; the defaults apply until they are saved again", e);
+      return null;
+    }
   }
 
   /** Draw every open note's Reading view again, so its tables follow the switch. */
@@ -306,19 +317,22 @@ export default class KlartextPlugin extends Plugin {
     else this.baseToolbars.stop();
   }
 
+  /** Apply the settings at once, then store them: a save that fails (a full
+   *  disk, a read-only vault) still leaves the switch working for the session. */
   async saveSettings(): Promise<void> {
-    const merged = this.mergedTables;
+    this.applySettings();
     await this.saveData(this.settings);
-    if (this.settings.mergeTableCells !== merged) {
-      this.mergedTables = this.settings.mergeTableCells;
-      this.redrawReadingViews();
-      refreshLivePreview();
-    }
-    if (this.settings.hyphenate !== this.hyphenated) {
-      this.hyphenated = this.settings.hyphenate;
-      this.redrawReadingViews();
-      refreshHyphenation();
-    }
+  }
+
+  private applySettings(): void {
+    const tablesChanged = this.settings.mergeTableCells !== this.mergedTables;
+    const languageChanged = this.settings.hyphenate !== this.hyphenated;
+    this.mergedTables = this.settings.mergeTableCells;
+    this.hyphenated = this.settings.hyphenate;
+    // One redraw of Reading view for both: each is a full render of every open note.
+    if (tablesChanged || languageChanged) this.redrawReadingViews();
+    if (tablesChanged) refreshLivePreview();
+    if (languageChanged) refreshHyphenation();
     this.applySwitches();
     this.syncBaseScroll();
     for (const row of this.windows.values()) {
@@ -391,14 +405,6 @@ export default class KlartextPlugin extends Plugin {
     }
   }
 
-  /** Log a failure the first time it happens; the same failure again stays quiet. */
-  private report(where: string, e: unknown): void {
-    const key = `${where}: ${e instanceof Error ? e.message : String(e)}`;
-    if (this.reported.has(key)) return;
-    this.reported.add(key);
-    console.warn(`[klartext] ${where} failed; further failures of this kind are not logged:`, e);
-  }
-
   private tick(): void {
     const read = this.cursor;
     if (!read) return;
@@ -426,14 +432,14 @@ export default class KlartextPlugin extends Plugin {
     const now = Date.now();
     // One window being resized holds every ask: the main process answering
     // them is the one busy with the resize, and every window waits on it.
-    const resizing = anyResizing(now, [...this.windows.values()].map((r) => r.lastResizeAt));
+    const resizing = anyResizing(now, resizeTimes(this.windows.values()));
     for (const row of this.windows.values()) {
       try {
         this.tickWindow(row, now, cursor, front, frontSeen, resizing);
       } catch (e) {
         // A window torn down mid-poll ends here once and is gone by the next
-        // tick; anything that keeps failing shows up in the count.
-        this.report("the poll", e);
+        // tick; anything that keeps failing is logged the first time.
+        warnOnce("the poll", e);
       }
     }
   }
@@ -495,6 +501,11 @@ export default class KlartextPlugin extends Plugin {
       row.appliedButtons = buttons;
     }
   }
+}
+
+/** Each window's last resize, without an array per tick. */
+function* resizeTimes(rows: Iterable<RowWindow>): Iterable<number> {
+  for (const row of rows) yield row.lastResizeAt;
 }
 
 class KlartextSettingTab extends PluginSettingTab {
@@ -573,7 +584,13 @@ class KlartextSettingTab extends PluginSettingTab {
       .addToggle((t) =>
         t.setValue(this.plugin.settings[key]).onChange(async (v) => {
           this.plugin.settings[key] = v;
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch (e) {
+            // The switch acts for this session; a person should know it will not last.
+            warnOnce("saving the settings", e);
+            new Notice("Klartext: the setting could not be saved. It applies until Obsidian restarts.");
+          }
         }),
       );
   }
