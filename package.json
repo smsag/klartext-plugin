@@ -1,6 +1,6 @@
 {
   "name": "klartext-plugin",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "license": "MIT",
   "description": "Klartext: the window's top row on hover, for Obsidian",
