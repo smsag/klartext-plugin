@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ALL_SWITCHES, TASK_MARKERS_CLASS } from "../src/switches";
+import { HYPHENATE_CLASS } from "../src/hyphenation";
 
 const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
@@ -317,5 +318,26 @@ describe("a base's toolbar while scrolling", () => {
 describe("the theme's task markers", () => {
   it("are the theme's to draw: the plugin's stylesheet has no rule on their class", () => {
     expect(keyedOn(TASK_MARKERS_CLASS)).toEqual([]);
+  });
+});
+
+describe("automatic hyphenation", () => {
+  const on = () => keyedOn(HYPHENATE_CLASS).filter((r) => /(^|;|\s)hyphens:\s*auto/.test(r.body));
+  const off = () => keyedOn(HYPHENATE_CLASS).filter((r) => /(^|;|\s)hyphens:\s*manual/.test(r.body));
+
+  it("hyphenates only a note's prose, in Reading view and Live Preview, never in Source mode", () => {
+    const arms = on().flatMap((r) => r.arms);
+    expect(arms.length).toBeGreaterThan(0);
+    for (const a of arms) expect(a.includes(".markdown-rendered") || a.includes(".is-live-preview .cm-content"), a).toBe(true);
+    expect(arms.some((a) => a.includes(".markdown-rendered"))).toBe(true);
+    expect(arms.some((a) => a.includes(".is-live-preview"))).toBe(true);
+  });
+
+  it("keeps headings, code and links whole in both views, and for older iOS too", () => {
+    const body = off().flatMap((r) => r.arms).join(" ");
+    for (const part of ["h1", "code", "pre", " a ", ".HyperMD-header", ".HyperMD-codeblock", ".cm-inline-code", ".cm-hmd-internal-link", ".inline-title"]) {
+      expect(body, part).toContain(part);
+    }
+    for (const r of [...on(), ...off()]) expect(r.body).toMatch(/-webkit-hyphens/);
   });
 });

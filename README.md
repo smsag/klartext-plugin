@@ -19,6 +19,10 @@ One switch is only a request to the theme: **the theme's task markers**
 (Tasks, off by default). The plugin draws nothing for it; it sets a class the
 Klartext theme draws its extra task boxes under (see below).
 
+One switch helps the text itself: **automatic hyphenation** (Text, off by
+default). Long words break at a syllable at the end of a line, in the
+language the note is written in (see below).
+
 ## The switches
 
 | Setting | Default | Does |
@@ -183,6 +187,34 @@ the set the Minimal theme made common, each with a box of its own:
   `klartext-task-markers` on the window's body and the theme keys its boxes
   on it; the plugin's own stylesheet has no rule for it. Under another theme
   nothing changes.
+
+## Text: automatic hyphenation
+
+With *Hyphenate long words* on (Text, off by default), a long word such as
+*Gewinnerzielungsabsicht* breaks at a syllable at the end of a line instead
+of leaving the line short. Under a monospace font, and on a phone, that is
+the difference between a ragged column and an even one.
+
+- **The language comes from the note's words.** A browser hyphenates only
+  text whose language it is told (`lang`), with that language's dictionary,
+  and neither Obsidian nor a note says one. The plugin counts the short
+  function words every sentence is made of (*der, und, ist* against *the,
+  and, is*) and puts the language they point to on the note. German,
+  English, French, Spanish, Italian and Dutch are told apart. Code, URLs,
+  link targets and the frontmatter are not counted.
+- **A paragraph in another language keeps its own.** An English quote in a
+  German note is hyphenated as English: a paragraph, list item or table cell
+  (in Live Preview: a line) whose words clearly point elsewhere gets its own
+  `lang`. One too short to tell keeps the note's.
+- **No guess.** A note too short or too mixed to tell takes Obsidian's app
+  language. A wrong dictionary breaks words in the wrong places, so a close
+  call between two languages is no answer.
+- **Prose only.** Body text, lists, callouts and tables, in Reading view and
+  Live Preview. Headings, the inline title, code, links and properties stay
+  whole; Source mode shows the Markdown as typed. The note is not changed.
+- **The browser does the breaking.** `hyphens: auto` with the system's
+  dictionaries: Chromium on macOS, the WebKit of iOS and iPadOS. Where a
+  platform has no dictionary for the language, words simply stay whole.
 
 ## Not here, on purpose
 

@@ -1,12 +1,14 @@
 // Wiring: read the settings, the pointer, the window and the DOM; ask the
-// pure modules; apply. Three jobs:
+// pure modules; apply. Four jobs:
 //
 //   * the furniture switches — body classes from the settings, which
 //     styles.css turns into what is hidden (src/switches.ts);
 //   * the top row on hover, and the macOS window buttons with it, in every
 //     window: the main one and each pop-out keep their own row (RowWindow);
 //   * table cells reaching down, in Reading view and Live Preview
-//     (src/tableCells.ts).
+//     (src/tableCells.ts);
+//   * the note's language for automatic hyphenation, in the same two
+//     (src/hyphenation.ts).
 //
 // Why the pointer is polled rather than followed with mouse events: with the
 // window frame hidden, the top strip is the window's drag handle, and macOS
@@ -14,12 +16,14 @@
 // never learn the pointer had arrived — or, once it is showing, that the
 // pointer had left. Electron's own cursor position is not blind there.
 
-import { MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, type App } from "obsidian";
+import { MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, getLanguage, type App } from "obsidian";
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
 import { ALL_SWITCHES, HIDE_SWITCHES, TASK_MARKERS, TASK_MARKERS_CLASS, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
 import { BaseToolbars } from "./baseToolbarWiring";
 import { livePreviewExtension, readingProcessor, refreshLivePreview } from "./tableCells";
+import { HYPHENATE_CLASS, hyphenationExtension, hyphenationProcessor, refreshHyphenation } from "./hyphenation";
+import { fallbackLanguage } from "./language";
 import {
   INITIAL,
   anyResizing,
@@ -230,12 +234,15 @@ export default class KlartextPlugin extends Plugin {
   private readonly reported = new Map<string, number>();
   /** Whether the tables were last drawn with cells reaching down. */
   private mergedTables = false;
+  /** Whether the notes were last drawn with their language for hyphenation. */
+  private hyphenated = false;
   /** A base's toolbar on a phone, while its switch is on. */
   private readonly baseToolbars = new BaseToolbars(document, this.counters);
 
   override async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
     this.mergedTables = this.settings.mergeTableCells;
+    this.hyphenated = this.settings.hyphenate;
     this.addSettingTab(new KlartextSettingTab(this.app, this));
     this.applySwitches();
     this.addCommand({
@@ -251,6 +258,12 @@ export default class KlartextPlugin extends Plugin {
     const merge = () => this.settings.mergeTableCells;
     this.registerMarkdownPostProcessor(readingProcessor(merge));
     this.registerEditorExtension(livePreviewExtension(merge));
+    // The same for the note's language. A note too short to tell takes the
+    // app's language: getLanguage arrived in Obsidian 1.8.7.
+    const hyphenate = () => this.settings.hyphenate;
+    const fallback = () => fallbackLanguage(typeof getLanguage === "function" ? getLanguage() : null, navigator.language);
+    this.registerMarkdownPostProcessor(hyphenationProcessor(hyphenate, fallback));
+    this.registerEditorExtension(hyphenationExtension(hyphenate, fallback));
 
     // Whatever replaces a base in its leaf, or moves to another one, shows the
     // toolbar again: a short base cannot be scrolled back to bring it.
@@ -292,17 +305,17 @@ export default class KlartextPlugin extends Plugin {
     this.stopLoop();
     for (const row of this.windows.values()) {
       row.dispose();
-      row.body.removeClass(ACTIVE_CLASS, TASK_MARKERS_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
+      row.body.removeClass(ACTIVE_CLASS, TASK_MARKERS_CLASS, HYPHENATE_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
       // With the class gone the variable is Obsidian's default again, and the
       // same formula puts the buttons back where Obsidian would.
       row.placeButtons();
     }
     this.windows.clear();
-    document.body.removeClass(ACTIVE_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
+    document.body.removeClass(ACTIVE_CLASS, TASK_MARKERS_CLASS, HYPHENATE_CLASS, ...ALL_SWITCHES.map((s) => s.cls));
     this.baseToolbars.stop();
     // Live Preview's tables lose their marks with the editor extension; Reading
     // view's keep them until drawn again.
-    if (this.settings.mergeTableCells) this.redrawReadingViews();
+    if (this.settings.mergeTableCells || this.settings.hyphenate) this.redrawReadingViews();
   }
 
   /** Draw every open note's Reading view again, so its tables follow the switch. */
@@ -326,6 +339,11 @@ export default class KlartextPlugin extends Plugin {
       this.mergedTables = this.settings.mergeTableCells;
       this.redrawReadingViews();
       refreshLivePreview();
+    }
+    if (this.settings.hyphenate !== this.hyphenated) {
+      this.hyphenated = this.settings.hyphenate;
+      this.redrawReadingViews();
+      refreshHyphenation();
     }
     this.applySwitches();
     this.syncBaseScroll();
@@ -394,6 +412,7 @@ export default class KlartextPlugin extends Plugin {
     for (const body of bodies) {
       for (const s of ALL_SWITCHES) body.toggleClass(s.cls, on.has(s.cls));
       body.toggleClass(TASK_MARKERS_CLASS, this.settings.themeTaskMarkers);
+      body.toggleClass(HYPHENATE_CLASS, this.settings.hyphenate);
       body.toggleClass(ACTIVE_CLASS, this.settings.topRowOnHover && this.cursor !== null);
     }
   }
@@ -603,6 +622,17 @@ class KlartextSettingTab extends PluginSettingTab {
         "). Off, they look like an open task. Either way a task carrying one is open work: Schreibstube counts it " +
         "as to do. Needs the Klartext theme; under another theme nothing changes.",
       "themeTaskMarkers",
+    );
+
+    new Setting(el).setName("Text").setHeading();
+    this.toggle(
+      "Hyphenate long words",
+      "A long word such as Gewinnerzielungsabsicht breaks at a syllable at the end of a line, so lines stay full " +
+        "and the text reads more evenly, most of all on a phone. The language is read from the note's own words " +
+        "(German, English, French, Spanish, Italian, Dutch); a paragraph in another language than the rest keeps " +
+        "its own, and a note too short to tell takes the app's language. Body text, lists, callouts and tables, " +
+        "in Reading view and Live Preview; headings, code and links stay whole. The note is not changed.",
+      "hyphenate",
     );
   }
 

@@ -5,6 +5,17 @@ generated notes.
 
 ## [Unreleased]
 
+### Added
+
+- **Automatic hyphenation** (Text → Hyphenate long words, off by default).
+  Long words such as *Gewinnerzielungsabsicht* break at a syllable at the end
+  of a line, so lines stay full, most of all on a phone. The language is read
+  from the note's own words (German, English, French, Spanish, Italian,
+  Dutch), a paragraph in another language keeps its own, and a note too short
+  to tell takes the app's language. Body text, lists, callouts and tables in
+  Reading view and Live Preview; headings, code and links stay whole. The
+  note is not changed.
+
 ## [0.7.0] — 2026-10-10
 
 ### Added
