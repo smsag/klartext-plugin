@@ -27,13 +27,6 @@ export const GONE_CLASS = "klartext-base-toolbar-gone";
  *  on a sort or a data change; a rebuilt one reads it at once. */
 export const THEAD_TOP_VAR = "--klartext-thead-top";
 
-export interface ToolbarCounters {
-  /** Times a toolbar arrived all gone or all there again. */
-  baseToolbarChanges: number;
-  /** Scroll events from inside a base that were not its own scroller. */
-  baseScrollsIgnored: number;
-}
-
 interface Tracked {
   leaf: HTMLElement;
   content: HTMLElement | null;
@@ -64,10 +57,7 @@ export class BaseToolbars {
     for (const t of this.tracked.values()) this.scheduleSettle(t);
   };
 
-  constructor(
-    private readonly doc: Document,
-    private readonly counters: ToolbarCounters,
-  ) {}
+  constructor(private readonly doc: Document) {}
 
   start(): void {
     if (this.running) return;
@@ -153,10 +143,9 @@ export class BaseToolbars {
       t.height = header.offsetHeight;
       t.band = header.offsetTop;
     }
-    const before = t.state.offset;
     if (replaced) t.state = TOOLBAR_UNSEEN;
     else if (reset || open) t.state = { ...t.state, offset: 0 };
-    if (replaced || reset || open) this.place(t, before);
+    if (replaced || reset || open) this.place(t);
   }
 
   private detach(t: Tracked): void {
@@ -174,16 +163,12 @@ export class BaseToolbars {
     if (leaf === null) return;
     const t = this.tracked.get(leaf) ?? this.attach(leaf);
     if (target !== t.scroller) this.bind(t, false);
-    if (target !== t.scroller || t.header === null) {
-      this.counters.baseScrollsIgnored++;
-      return;
-    }
-    const before = t.state.offset;
+    if (target !== t.scroller || t.header === null) return;
     t.state = t.searchOpen
       ? { top: target.scrollTop, offset: 0 }
       : followScroll(t.state, target.scrollTop, target.scrollHeight - target.clientHeight, t.height);
     t.leaf.classList.remove(SETTLING_CLASS);
-    this.place(t, before);
+    this.place(t);
     this.scheduleSettle(t);
   }
 
@@ -201,15 +186,14 @@ export class BaseToolbars {
     if (this.touching || this.tracked.get(t.leaf) !== t || t.header === null) return;
     const to = settleOffset(t.state, t.height);
     if (to === t.state.offset) return;
-    const before = t.state.offset;
     t.state = { ...t.state, offset: to };
     t.leaf.classList.add(SETTLING_CLASS);
-    this.place(t, before);
+    this.place(t);
   }
 
   /** The toolbar at its offset, inline on the toolbar alone: a transform and
    *  an opacity, which change no layout. */
-  private place(t: Tracked, before: number): void {
+  private place(t: Tracked): void {
     if (t.header === null) return;
     const { offset } = t.state;
     const { height } = t;
@@ -219,10 +203,7 @@ export class BaseToolbars {
     style.visibility = offset > 0 && offset >= height ? "hidden" : "";
     if (offset > 0) t.scroller?.style.setProperty(THEAD_TOP_VAR, `${t.band + height - offset}px`);
     else t.scroller?.style.removeProperty(THEAD_TOP_VAR);
-    const gone = offset > 0 && offset >= height;
-    t.leaf.classList.toggle(GONE_CLASS, gone);
-    const end = (o: number) => (o <= 0 ? "there" : o >= height ? "gone" : null);
-    if (end(offset) !== null && end(offset) !== end(before)) this.counters.baseToolbarChanges++;
+    t.leaf.classList.toggle(GONE_CLASS, offset > 0 && offset >= height);
   }
 }
 

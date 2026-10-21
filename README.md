@@ -26,10 +26,6 @@ the note looks, yet it lives here: a browser hyphenates only text that says
 its language, and only the plugin can read that from the note. Its rules sit
 in the plugin's own stylesheet, so it works under any theme.
 
-One switch writes into the note, and only where a paste was meant to go:
-**pasted lines stay in their quote** (Text, on by default). A paste into a
-quote or callout gives every pasted line its `>` (see below).
-
 ## The switches
 
 | Setting | Default | Does |
@@ -223,33 +219,6 @@ the difference between a ragged column and an even one.
   dictionaries: Chromium on macOS, the WebKit of iOS and iPadOS. Where a
   platform has no dictionary for the language, words simply stay whole.
 
-## Text: pasted lines stay in their quote
-
-Markdown lets a quote's paragraph run on into lines without `>`. Reading view
-and Live Preview still draw them in the quote, but Source mode, and any other
-Markdown tool, show the text outside it: a callout whose first line has
-slipped out under its `> [!quote]`. Such lines are not typed; they are
-pasted. Obsidian carries `> ` on when Enter is pressed in a quote, but a
-paste brings its own line breaks, and text copied from a browser often starts
-with one.
-
-- **On a paste.** With *Keep pasted lines in their quote* on (Text, on by
-  default), a paste of several lines into a quote line gives each line after
-  the first the quote's `>`, at its depth (`> > ` two quotes deep), and a
-  blank line the bare `>`. Line breaks a paste starts with are dropped when
-  the cursor sits right after the `>`; after a callout's `[!quote]` one is
-  kept, so the text starts its own line inside the callout rather than
-  joining the title. HTML is turned into Markdown first, as Obsidian does when
-  its *Auto convert HTML* is on. A single line, a paste outside a quote, a
-  quote pasted into a quote, files, several cursors and a `>` inside a code
-  block are left to Obsidian. One undo takes the whole paste back.
-- **For a note written before.** The command **Klartext: Put lines that
-  slipped out of a quote back in** adds the missing `>` to every line
-  Markdown already counts as the quote's, in one undoable step. It follows
-  Markdown's own rule, so nothing in how the note looks changes: a heading,
-  a list item, a code block, a blank line or a blank `>` line ends a quote,
-  and what follows it is left alone. It works in the current note only.
-
 ## Not here, on purpose
 
 **The heading level marks** (`#₁`…`#₆` in Live Preview's margin) stay in the
@@ -262,16 +231,10 @@ text edge. What would make a plugin worth it is behaviour, not looks: a mark
 that folds or changes the level when clicked, or that shows in Reading view.
 That would be built as editor decorations, which work under any theme.
 
-## Diagnostics
+## Failures
 
-The command **Klartext: Copy diagnostics** puts a short JSON report on the
-clipboard for a bug report: the plugin and Obsidian versions, the platform
-flags that decide what the plugin does, the settings, each window's row state,
-and counters since the plugin started, among them how many times it asked
-Electron, how often a poll was skipped for a resize, and how many pastes and
-lines were put into a quote. A failure is logged to
-the console once, then only counted, and the count is in the report. Nothing
-from the vault is included.
+A failure is logged to the developer console once, prefixed `[klartext]`; the
+same failure again stays quiet, since the top row polls twenty times a second.
 
 ## Verified, and not
 

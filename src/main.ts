@@ -1,5 +1,5 @@
 // Wiring: read the settings, the pointer, the window and the DOM; ask the
-// pure modules; apply. Five jobs:
+// pure modules; apply. Four jobs:
 //
 //   * the furniture switches — body classes from the settings, which
 //     styles.css turns into what is hidden (src/switches.ts);
@@ -8,9 +8,7 @@
 //   * table cells reaching down, in Reading view and Live Preview
 //     (src/tableCells.ts);
 //   * the note's language for automatic hyphenation, in the same two
-//     (src/hyphenation.ts);
-//   * every line of a quote keeping its ">": on a paste, and on request for a
-//     whole note (src/quotes.ts).
+//     (src/hyphenation.ts).
 //
 // Why the pointer is polled rather than followed with mouse events: with the
 // window frame hidden, the top strip is the window's drag handle, and macOS
@@ -18,7 +16,7 @@
 // never learn the pointer had arrived — or, once it is showing, that the
 // pointer had left. Electron's own cursor position is not blind there.
 
-import { MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, getLanguage, htmlToMarkdown, type App, type Editor } from "obsidian";
+import { MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, getLanguage, type App } from "obsidian";
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
 import { ALL_SWITCHES, HIDE_SWITCHES, TASK_MARKERS, TASK_MARKERS_CLASS, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
@@ -26,7 +24,6 @@ import { BaseToolbars } from "./baseToolbarWiring";
 import { livePreviewExtension, readingProcessor, refreshLivePreview } from "./tableCells";
 import { HYPHENATE_CLASS, hyphenationExtension, hyphenationProcessor, refreshHyphenation } from "./hyphenation";
 import { fallbackLanguage } from "./language";
-import { inFencedCode, lazyLines, quotePaste } from "./quotes";
 import {
   INITIAL,
   anyResizing,
@@ -202,29 +199,6 @@ class RowWindow {
   }
 }
 
-/** What the plugin has done since it started, for "Copy diagnostics". */
-interface Counters {
-  ticks: number;
-  /** Asks of Electron for the cursor, each a synchronous round trip. */
-  cursorReads: number;
-  /** Asks of Electron for a window's position, the same kind of round trip. */
-  boundsReads: number;
-  /** Polls skipped because the window was being resized. */
-  skippedWhileResizing: number;
-  bandMeasures: number;
-  errors: number;
-  /** Times a base's toolbar arrived all gone or all there again. */
-  baseToolbarChanges: number;
-  /** Scroll events from inside a base that were not its own scroller. A
-   *  number that grows while baseToolbarChanges stays 0 means Obsidian now
-   *  scrolls a different element, and the switch has nothing to follow. */
-  baseScrollsIgnored: number;
-  /** Pastes into a quote whose lines were given its ">". */
-  quotedPastes: number;
-  /** Lines the repair command put back into their quote. */
-  quoteLinesRepaired: number;
-}
-
 export default class KlartextPlugin extends Plugin {
   override settings: KlartextSettings = { ...DEFAULT_SETTINGS };
   private cursor: (() => Point) | null = null;
@@ -234,17 +208,15 @@ export default class KlartextPlugin extends Plugin {
   private readonly windows = new Map<Window, RowWindow>();
   /** The poll loop, running only while the top row fades. */
   private loop: number | null = null;
-  private readonly counters: Counters = { ticks: 0, cursorReads: 0, boundsReads: 0, skippedWhileResizing: 0, bandMeasures: 0, errors: 0, baseToolbarChanges: 0, baseScrollsIgnored: 0, quotedPastes: 0, quoteLinesRepaired: 0 };
-  private readonly startedAt = Date.now();
-  /** Each distinct failure is logged once, then counted: a poll runs twenty
-   *  times a second, and a console that scrolls the same line is no report. */
-  private readonly reported = new Map<string, number>();
+  /** Each distinct failure is logged once: a poll runs twenty times a
+   *  second, and a console that scrolls the same line is no report. */
+  private readonly reported = new Set<string>();
   /** Whether the tables were last drawn with cells reaching down. */
   private mergedTables = false;
   /** Whether the notes were last drawn with their language for hyphenation. */
   private hyphenated = false;
   /** A base's toolbar on a phone, while its switch is on. */
-  private readonly baseToolbars = new BaseToolbars(document, this.counters);
+  private readonly baseToolbars = new BaseToolbars(document);
 
   override async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
@@ -252,24 +224,6 @@ export default class KlartextPlugin extends Plugin {
     this.hyphenated = this.settings.hyphenate;
     this.addSettingTab(new KlartextSettingTab(this.app, this));
     this.applySwitches();
-    this.addCommand({
-      id: "copy-diagnostics",
-      name: "Copy diagnostics",
-      callback: () => void this.copyDiagnostics(),
-    });
-    this.addCommand({
-      id: "repair-quotes",
-      name: "Put lines that slipped out of a quote back in",
-      editorCallback: (editor) => this.repairQuotes(editor),
-    });
-    this.registerEvent(this.app.workspace.on("editor-paste", (evt, editor) => {
-      try {
-        this.pasteIntoQuote(evt, editor);
-      } catch (e) {
-        // Nothing was inserted yet: Obsidian's own paste goes ahead.
-        this.report("a paste into a quote", e);
-      }
-    }));
 
     this.syncBaseScroll();
 
@@ -437,24 +391,21 @@ export default class KlartextPlugin extends Plugin {
     }
   }
 
-  /** Log a failure the first time it happens, and count it every time. */
+  /** Log a failure the first time it happens; the same failure again stays quiet. */
   private report(where: string, e: unknown): void {
-    this.counters.errors++;
     const key = `${where}: ${e instanceof Error ? e.message : String(e)}`;
-    const seen = this.reported.get(key) ?? 0;
-    if (seen === 0) console.warn(`[klartext] ${where} failed; further failures of this kind are counted in "Copy diagnostics":`, e);
-    this.reported.set(key, seen + 1);
+    if (this.reported.has(key)) return;
+    this.reported.add(key);
+    console.warn(`[klartext] ${where} failed; further failures of this kind are not logged:`, e);
   }
 
   private tick(): void {
     const read = this.cursor;
     if (!read) return;
-    this.counters.ticks++;
     // One ask of Electron per tick at most, shared by every window that needs it.
     let cursorAt: Point | undefined;
     const cursor = () => {
       if (cursorAt === undefined) {
-        this.counters.cursorReads++;
         cursorAt = read();
       }
       return cursorAt;
@@ -467,7 +418,6 @@ export default class KlartextPlugin extends Plugin {
     const front = (row: RowWindow): Rect | null => {
       if (focused === null || focused === row || !focused.native) return null;
       if (frontAt === undefined) {
-        this.counters.boundsReads++;
         frontAt = focused.native.getContentBounds();
       }
       return frontAt;
@@ -500,7 +450,6 @@ export default class KlartextPlugin extends Plugin {
     if (doc.hidden) return;
     if (row.bandDirty && !resizing) {
       row.measureBand();
-      this.counters.bandMeasures++;
     }
 
     let inBand = row.lastInBand;
@@ -511,15 +460,12 @@ export default class KlartextPlugin extends Plugin {
       shouldPoll({ now, resizing, shown: row.state.shown, pointer: row.pointer, lastPollAt: row.lastPollAt, bandCss: row.bandCss })
     ) {
       const at = cursor();
-      this.counters.boundsReads++;
       inBand =
         inTopBand(at, row.native.getContentBounds(), row.bandCss, row.zoom()) &&
         !coveredByFront(at, front(row), row.pointer?.at ?? null, frontSeen());
       row.lastPollAt = now;
     } else if (row.pointer !== null && !resizing) {
       inBand = false; // seen deep in the note, and already confirmed there
-    } else if (resizing) {
-      this.counters.skippedWhileResizing++;
     }
     row.lastInBand = inBand;
 
@@ -547,90 +493,6 @@ export default class KlartextPlugin extends Plugin {
     if (buttons !== row.appliedButtons) {
       row.setButtons(buttons);
       row.appliedButtons = buttons;
-    }
-  }
-
-  /** A paste into a quote or callout, with every pasted line given its ">".
-   *  Anything this does not handle is left to Obsidian's own paste. */
-  private pasteIntoQuote(evt: ClipboardEvent, editor: Editor): void {
-    if (!this.settings.quotePaste || evt.defaultPrevented) return;
-    const data = evt.clipboardData;
-    // Files are Obsidian's to attach; several cursors, Obsidian's to fill.
-    if (!data || data.files.length > 0 || editor.listSelections().length !== 1) return;
-    const from = editor.getCursor("from");
-    const before = editor.getLine(from.line).slice(0, from.ch);
-    // Cheap test first: most pastes are not into a quote at all.
-    if (!/^[ \t]*>/.test(before)) return;
-    const pasted = this.pastedMarkdown(data);
-    if (pasted === null) return;
-    const text = quotePaste(before, pasted);
-    if (text === null) return;
-    // A ">" in a code block is code, and so is the paste.
-    if (inFencedCode(editor.getValue().split("\n"), from.line)) return;
-    evt.preventDefault();
-    editor.replaceSelection(text);
-    this.counters.quotedPastes++;
-  }
-
-  /** The clipboard as Obsidian would paste it: HTML turned into Markdown
-   *  when its "Auto convert HTML" is on (the default), else the plain text. */
-  private pastedMarkdown(data: DataTransfer): string | null {
-    const html = data.getData("text/html");
-    const config = (this.app.vault as unknown as { getConfig?: (key: string) => unknown }).getConfig?.("autoConvertHtml");
-    if (html && config !== false) return htmlToMarkdown(html);
-    const plain = data.getData("text/plain");
-    return plain === "" ? null : plain;
-  }
-
-  /** Every lazy line of the note given its ">", in one undoable step. */
-  private repairQuotes(editor: Editor): void {
-    const lazy = lazyLines(editor.getValue());
-    if (lazy.length === 0) {
-      new Notice("Klartext: every line of this note's quotes already has its >.");
-      return;
-    }
-    editor.transaction({ changes: lazy.map(({ line, insert }) => ({ from: { line, ch: 0 }, text: insert })) });
-    this.counters.quoteLinesRepaired += lazy.length;
-    new Notice(`Klartext: ${lazy.length} ${lazy.length === 1 ? "line" : "lines"} put back into ${lazy.length === 1 ? "its quote" : "their quotes"}.`);
-  }
-
-  /** Everything a bug report needs, on the clipboard: no values from the
-   *  vault, only the plugin's own state and the platform's shape. */
-  private async copyDiagnostics(): Promise<void> {
-    const seconds = Math.max(1, (Date.now() - this.startedAt) / 1000);
-    const perSecond = (n: number) => Math.round((n / seconds) * 10) / 10;
-    const report = {
-      plugin: this.manifest.version,
-      obsidian: apiVersion,
-      platform: {
-        desktop: Platform.isDesktopApp,
-        macOS: Platform.isMacOS,
-        phone: Platform.isPhone,
-        body: [...document.body.classList].filter((c) =>
-          /^(mod-|is-(hidden-)?frame|is-fullscreen|theme-|is-phone$|is-floating-nav$|auto-full-screen$|is-hidden-nav$)/.test(c),
-        ),
-      },
-      topRow: this.unavailable === null ? (this.loop !== null ? "running" : "idle") : `unavailable: ${this.unavailable}`,
-      settings: this.settings,
-      windows: [...this.windows.values()].map((row) => ({
-        main: row.win === window,
-        band: Math.round(row.bandCss),
-        shown: row.state.shown,
-        buttonsVisible: row.appliedButtons,
-        pointerSeen: row.pointer !== null,
-      })),
-      counters: this.counters,
-      perSecond: { cursorReads: perSecond(this.counters.cursorReads), boundsReads: perSecond(this.counters.boundsReads) },
-      failures: Object.fromEntries(this.reported),
-    };
-    const text = JSON.stringify(report, null, 2);
-    try {
-      await navigator.clipboard.writeText(text);
-      new Notice("Klartext: diagnostics copied to the clipboard.");
-    } catch (e) {
-      console.info("[klartext] diagnostics:\n" + text);
-      new Notice("Klartext: the clipboard refused; the diagnostics are in the developer console.");
-      this.report("copying diagnostics", e);
     }
   }
 }
@@ -697,15 +559,6 @@ class KlartextSettingTab extends PluginSettingTab {
         "its own, and a note too short to tell takes the app's language. Body text, lists, callouts and tables, " +
         "in Reading view and Live Preview; headings, code and links stay whole. The note is not changed.",
       "hyphenate",
-    );
-    this.toggle(
-      "Keep pasted lines in their quote",
-      "Text pasted into a quote or callout gets > on every line, and a line break it starts with no longer " +
-        "pushes its first line out. Without the >, Reading view and Live Preview still draw such lines in the " +
-        "quote, but Source mode shows them outside it, and so does any other Markdown tool. For a note written " +
-        "before, the command \"Put lines that slipped out of a quote back in\" adds the missing > and changes " +
-        "nothing in how the note looks.",
-      "quotePaste",
     );
   }
 

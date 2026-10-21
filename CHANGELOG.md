@@ -5,6 +5,15 @@ generated notes.
 
 ## [Unreleased]
 
+### Removed
+
+- **Pasted lines staying in their quote, and the command that put
+  slipped-out lines back** (0.9.0). The quote problem they worked around was
+  fixed earlier, so the workaround goes: the setting *Keep pasted lines in
+  their quote* is gone, and a stored value for it is ignored.
+- **The command Copy diagnostics**, with the report and the counters behind
+  it. A failure is still logged to the console, once.
+
 ## [0.9.0] — 2026-10-21
 
 ### Added

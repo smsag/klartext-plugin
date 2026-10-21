@@ -37,14 +37,10 @@ export interface KlartextSettings {
   themeTaskMarkers: boolean;
   /** Long words break at a syllable at the end of a line, in the note's own language. */
   hyphenate: boolean;
-  /** A paste into a quote or callout gives every pasted line its ">". */
-  quotePaste: boolean;
 }
 
 /** Installing the plugin is the choice of a quiet top row, so that part is on;
- *  every piece of furniture stays until it is switched off by name. Quoted
- *  pastes are on as well: a pasted line that falls out of its quote is never
- *  what was meant, and outside a quote nothing changes. */
+ *  every piece of furniture stays until it is switched off by name. */
 export const DEFAULT_SETTINGS: KlartextSettings = {
   topRowOnHover: true,
   hideWindowButtons: true,
@@ -68,7 +64,6 @@ export const DEFAULT_SETTINGS: KlartextSettings = {
   mergeTableCells: false,
   themeTaskMarkers: false,
   hyphenate: false,
-  quotePaste: true,
 };
 
 export function normalizeSettings(raw: unknown): KlartextSettings {
