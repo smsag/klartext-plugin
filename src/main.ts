@@ -8,7 +8,9 @@
 //   * table cells reaching down, in Reading view and Live Preview
 //     (src/tableCells.ts);
 //   * the note's language for automatic hyphenation, in the same two
-//     (src/hyphenation.ts).
+//     (src/hyphenation.ts);
+//   * a quote's ">" markers on a line typed below it, in Live Preview
+//     (src/quoteMarkers.ts).
 //
 // Why the pointer is polled rather than followed with mouse events: with the
 // window frame hidden, the top strip is the window's drag handle, and macOS
@@ -16,7 +18,7 @@
 // never learn the pointer had arrived — or, once it is showing, that the
 // pointer had left. Electron's own cursor position is not blind there.
 
-import { MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, getLanguage, type App } from "obsidian";
+import { MarkdownView, Notice, Platform, Plugin, PluginSettingTab, Setting, apiVersion, editorLivePreviewField, getLanguage, type App } from "obsidian";
 import { DEFAULT_SETTINGS, normalizeSettings, type KlartextSettings } from "./settings";
 import { ALL_SWITCHES, HIDE_SWITCHES, TASK_MARKERS, TASK_MARKERS_CLASS, TOP_ROW_SWITCHES, availableOn, switchClasses, type PlatformFlags, type Switch } from "./switches";
 import { windowButtonPosition, type ButtonPosition } from "./windowButtons";
@@ -24,6 +26,7 @@ import { BaseToolbars } from "./baseToolbarWiring";
 import { livePreviewExtension, readingProcessor, refreshLivePreview } from "./tableCells";
 import { HYPHENATE_CLASS, hyphenationExtension, hyphenationProcessor, refreshHyphenation } from "./hyphenation";
 import { fallbackLanguage } from "./language";
+import { quoteMarkersExtension } from "./quoteMarkers";
 import {
   INITIAL,
   anyResizing,
@@ -264,6 +267,10 @@ export default class KlartextPlugin extends Plugin {
     const fallback = () => fallbackLanguage(typeof getLanguage === "function" ? getLanguage() : null, navigator.language);
     this.registerMarkdownPostProcessor(hyphenationProcessor(hyphenate, fallback));
     this.registerEditorExtension(hyphenationExtension(hyphenate, fallback));
+    // Asked on every keystroke, so the switch acts without a reload.
+    this.registerEditorExtension(
+      quoteMarkersExtension(() => this.settings.keepQuoteMarkers, (state) => state.field(editorLivePreviewField, false) ?? false),
+    );
 
     // Whatever replaces a base in its leaf, or moves to another one, shows the
     // toolbar again: a short base cannot be scrolled back to bring it.
@@ -633,6 +640,15 @@ class KlartextSettingTab extends PluginSettingTab {
         "its own, and a note too short to tell takes the app's language. Body text, lists, callouts and tables, " +
         "in Reading view and Live Preview; headings, code and links stay whole. The note is not changed.",
       "hyphenate",
+    );
+    this.toggle(
+      "Keep a quote's markers",
+      "In Live Preview, a line you type or paste right below a quote or callout line gets that line's > marker. " +
+        "Obsidian shows such a line inside the callout with or without the >, and the Klartext theme never shows " +
+        "the >, so a lost one goes unseen – until another app reads the note and finds the callout empty. The " +
+        "line was part of the quote already; now the note says so. A heading, a list, a code block or an empty " +
+        "line still ends the quote, and Source mode and notes you only open are left as they are.",
+      "keepQuoteMarkers",
     );
   }
 

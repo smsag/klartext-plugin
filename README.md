@@ -26,6 +26,11 @@ the note looks, yet it lives here: a browser hyphenates only text that says
 its language, and only the plugin can read that from the note. Its rules sit
 in the plugin's own stylesheet, so it works under any theme.
 
+One switch keeps the note honest: **a quote's markers** (Text, on by
+default). A line typed right below a quote or callout line gets its `>`, so
+what Live Preview shows inside a callout is inside it in the note too (see
+below). It is the only switch that writes into a note, and only what you type.
+
 ## The switches
 
 | Setting | Default | Does |
@@ -219,6 +224,33 @@ the difference between a ragged column and an even one.
   dictionaries: Chromium on macOS, the WebKit of iOS and iPadOS. Where a
   platform has no dictionary for the language, words simply stay whole.
 
+## Text: a quote's markers
+
+With *Keep a quote's markers* on (Text, on by default), a line you type or
+paste in Live Preview right below a quote or callout line gets that line's
+`>` markers: `> [!quote]` followed by a typed *Hype works …* becomes
+`> Hype works …` in the note.
+
+- **Why.** Markdown counts a line of text right after a quote line as part of
+  the quote even without `>` (a *lazy* line), and Obsidian draws it inside the
+  callout. The Klartext theme never shows the `>` – the bar is the mark – and
+  sets a lazy line on the same edge as a marked one, so a lost `>` (one
+  Backspace too many on an empty-looking line, or Enter on an empty `> ` line,
+  which ends the quote) cannot be seen. Another app that wants every line
+  marked, such as Nimbus, then finds the callout empty.
+- **Nothing changes meaning.** The line was in the quote already; the markers
+  only say so. Nested quotes get all their levels (`> > `).
+- **What still ends a quote:** an empty line, a heading, a list item, a code
+  fence, a rule, a table row or HTML typed below it. While such a marker is
+  still being typed (`-` before `- item`, `#` before `# Heading`) the line is
+  left alone, so a list after a callout stays a list. Below an empty `> `, a
+  heading, a rule or code inside the quote nothing is added either: Markdown
+  does not continue those.
+- **Only typing and pasting, only Live Preview.** Source mode shows the `>`,
+  so it is left as typed. A note is never rewritten when it opens; a lazy line
+  already in a note gets its marker when you next type in it. Undo takes the
+  marker back with the keystroke.
+
 ## Not here, on purpose
 
 **The heading level marks** (`#₁`…`#₆` in Live Preview's margin) stay in the
@@ -293,6 +325,11 @@ Worth checking on a Mac:
 3. The row appears when the pointer arrives over the empty strip, not only over
    a tab or button.
 4. The window drags from the note header with *Hide the tab bar* on.
+
+**Not verified in Obsidian: *Keep a quote's markers*.** Its tests run the
+real CodeMirror editor state with typed and pasted changes, not Obsidian's own
+Enter and Backspace handling inside a callout. Worth checking: `> [!quote]`,
+Enter, type a line; Enter twice, then a `- list`; paste a paragraph.
 
 ## Install
 

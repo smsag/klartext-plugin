@@ -7,9 +7,9 @@ describe("normalizeSettings", () => {
     expect(normalizeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
   });
 
-  it("turns on the quiet top row and nothing else by default", () => {
+  it("turns on the quiet top row and the quote markers, and nothing else, by default", () => {
     const on = Object.entries(DEFAULT_SETTINGS).filter(([, v]) => v).map(([k]) => k);
-    expect(on.sort()).toEqual(["hideWindowButtons", "topRowOnHover"]);
+    expect(on.sort()).toEqual(["hideWindowButtons", "keepQuoteMarkers", "topRowOnHover"]);
   });
 
   it("keeps every valid stored value", () => {

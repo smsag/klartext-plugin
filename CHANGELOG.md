@@ -5,6 +5,16 @@ generated notes.
 
 ## [Unreleased]
 
+### Added
+
+- **A quote's markers** (Text → Keep a quote's markers, on by default). A
+  line typed or pasted in Live Preview right below a quote or callout line
+  gets that line's `>`, so what shows inside a callout is inside it in the
+  note too. Before, a lost `>` went unseen under the Klartext theme, which
+  never shows it, and another app reading the note found the callout empty.
+  An empty line, a heading, a list, a code block, a rule or a table still
+  ends the quote; Source mode and notes only opened are left as they are.
+
 ## [0.8.0] — 2026-10-21
 
 ### Added

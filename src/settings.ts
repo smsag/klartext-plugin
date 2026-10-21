@@ -37,10 +37,14 @@ export interface KlartextSettings {
   themeTaskMarkers: boolean;
   /** Long words break at a syllable at the end of a line, in the note's own language. */
   hyphenate: boolean;
+  /** A line typed right below a quote or callout line gets its ">" markers, as it is part of the quote anyway. */
+  keepQuoteMarkers: boolean;
 }
 
 /** Installing the plugin is the choice of a quiet top row, so that part is on;
- *  every piece of furniture stays until it is switched off by name. */
+ *  every piece of furniture stays until it is switched off by name. Keeping a
+ *  quote's markers is on too: it is not furniture but the note saying what it
+ *  shows, and the Klartext theme hides the ">" whose loss it prevents. */
 export const DEFAULT_SETTINGS: KlartextSettings = {
   topRowOnHover: true,
   hideWindowButtons: true,
@@ -64,6 +68,7 @@ export const DEFAULT_SETTINGS: KlartextSettings = {
   mergeTableCells: false,
   themeTaskMarkers: false,
   hyphenate: false,
+  keepQuoteMarkers: true,
 };
 
 export function normalizeSettings(raw: unknown): KlartextSettings {
