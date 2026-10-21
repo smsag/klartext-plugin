@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-10-21
+
 ### Added
 
 - **Pasted lines stay in their quote** (Text → Keep pasted lines in their
