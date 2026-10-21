@@ -8,7 +8,11 @@
 
 import type { KlartextSettings } from "./settings";
 
-export type SwitchKey = Exclude<keyof KlartextSettings, "topRowOnHover" | "hideWindowButtons" | "mergeTableCells" | "themeTaskMarkers" | "hyphenate">;
+/** The settings with a toggle of their own in the settings tab, outside the
+ *  furniture switches. Every other setting is a switch: a body class. */
+export const OWN_SETTINGS = ["topRowOnHover", "hideWindowButtons", "mergeTableCells", "themeTaskMarkers", "hyphenate"] as const;
+
+export type SwitchKey = Exclude<keyof KlartextSettings, (typeof OWN_SETTINGS)[number]>;
 
 export interface Switch {
   key: SwitchKey;
@@ -17,11 +21,12 @@ export interface Switch {
   desc: string;
   /** Where the switch can do anything. The settings tab leaves it out
    *  elsewhere: a toggle that cannot act only raises the question why. */
-  only?: Platform;
+  only?: PlatformScope;
 }
 
-/** "macos": a Mac desktop. "desktop": any desktop. "phone": a phone, not a tablet. */
-export type Platform = "macos" | "desktop" | "phone";
+/** "macos": a Mac desktop. "desktop": any desktop. "phone": a phone, not a tablet.
+ *  Not named Platform: main.ts uses Obsidian's Platform beside it. */
+export type PlatformScope = "macos" | "desktop" | "phone";
 
 export interface PlatformFlags {
   desktop: boolean;
@@ -30,7 +35,7 @@ export interface PlatformFlags {
 }
 
 /** Whether a switch meant for `only` can act on this platform. */
-export function availableOn(only: Platform | undefined, p: PlatformFlags): boolean {
+export function availableOn(only: PlatformScope | undefined, p: PlatformFlags): boolean {
   if (only === "macos") return p.desktop && p.macOS;
   if (only === "desktop") return p.desktop;
   if (only === "phone") return p.phone;

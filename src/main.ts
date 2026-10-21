@@ -203,8 +203,9 @@ class RowWindow {
 export default class KlartextPlugin extends Plugin {
   override settings: KlartextSettings = { ...DEFAULT_SETTINGS };
   private cursor: (() => Point) | null = null;
-  /** Why the top row cannot run here, when it cannot; null when it can. */
-  private unavailable: string | null = null;
+  /** Why the top row cannot run here, when it cannot; null when it can.
+   *  The settings tab says it beside the switch it leaves without effect. */
+  unavailable: string | null = null;
   /** The main window and every pop-out, each with its own row. */
   private readonly windows = new Map<Window, RowWindow>();
   /** The poll loop, running only while the top row fades. */
@@ -520,12 +521,17 @@ class KlartextSettingTab extends PluginSettingTab {
     const here = { desktop: Platform.isDesktopApp, macOS: Platform.isMacOS, phone: Platform.isPhone };
 
     new Setting(el).setName("Top row").setHeading();
+    const fading = this.plugin.settings.topRowOnHover;
     if (here.desktop) {
+      // Said here, where it is missed, rather than only in the console.
+      const why = this.plugin.unavailable;
       this.toggle(
         "Show the top row only on hover",
         "The tab strip and the note header fade out, and come back when the pointer reaches the top of the window. " +
-          "The note never moves.",
+          "The note never moves." +
+          (why === null ? "" : ` Not working on this device: ${why}.`),
         "topRowOnHover",
+        { redraw: true },
       );
     }
     if (here.macOS && here.desktop) {
@@ -533,8 +539,10 @@ class KlartextSettingTab extends PluginSettingTab {
         "Hide a pop-out's window buttons with its row",
         "macOS only, with the window frame set to hidden. In a pop-out window the red, yellow and green buttons " +
           "appear and disappear together with its top row. The main window always keeps its buttons. With a title " +
-          "bar, and in fullscreen, they are left alone.",
+          "bar, and in fullscreen, they are left alone." +
+          (fading ? "" : " Needs the top row to fade on hover."),
         "hideWindowButtons",
+        { disabled: !fading },
       );
     }
     for (const s of TOP_ROW_SWITCHES) this.switchToggle(s, here);
@@ -577,21 +585,29 @@ class KlartextSettingTab extends PluginSettingTab {
     if (availableOn(s.only, here)) this.toggle(s.name, s.desc, s.key);
   }
 
-  private toggle(name: string, desc: string, key: keyof KlartextSettings): void {
+  /** One toggle. `disabled`: shown greyed out, because another setting
+   *  leaves it without effect. `redraw`: draw the tab again after a change,
+   *  for the toggles that depend on this one. */
+  private toggle(name: string, desc: string, key: keyof KlartextSettings, opts: { disabled?: boolean; redraw?: boolean } = {}): void {
     new Setting(this.containerEl)
       .setName(name)
       .setDesc(desc)
+      .setDisabled(opts.disabled ?? false)
       .addToggle((t) =>
-        t.setValue(this.plugin.settings[key]).onChange(async (v) => {
-          this.plugin.settings[key] = v;
-          try {
-            await this.plugin.saveSettings();
-          } catch (e) {
-            // The switch acts for this session; a person should know it will not last.
-            warnOnce("saving the settings", e);
-            new Notice("Klartext: the setting could not be saved. It applies until Obsidian restarts.");
-          }
-        }),
+        t
+          .setValue(this.plugin.settings[key])
+          .setDisabled(opts.disabled ?? false)
+          .onChange(async (v) => {
+            this.plugin.settings[key] = v;
+            try {
+              await this.plugin.saveSettings();
+            } catch (e) {
+              // The switch acts for this session; a person should know it will not last.
+              warnOnce("saving the settings", e);
+              new Notice("Klartext: the setting could not be saved. It applies until Obsidian restarts.");
+            }
+            if (opts.redraw) this.display();
+          }),
       );
   }
 }
