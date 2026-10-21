@@ -5,6 +5,8 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-10-21
+
 ### Added
 
 - **Automatic hyphenation** (Text → Hyphenate long words, off by default).

@@ -21,7 +21,10 @@ Klartext theme draws its extra task boxes under (see below).
 
 One switch helps the text itself: **automatic hyphenation** (Text, off by
 default). Long words break at a syllable at the end of a line, in the
-language the note is written in (see below).
+language the note is written in (see below). Like the table cells it is how
+the note looks, yet it lives here: a browser hyphenates only text that says
+its language, and only the plugin can read that from the note. Its rules sit
+in the plugin's own stylesheet, so it works under any theme.
 
 ## The switches
 
