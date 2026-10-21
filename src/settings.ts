@@ -35,6 +35,8 @@ export interface KlartextSettings {
   mergeTableCells: boolean;
   /** The theme draws its own boxes for the task markers beyond Markdown's two and Obsidian's usual four. */
   themeTaskMarkers: boolean;
+  /** Long words break at a syllable at the end of a line, in the note's own language. */
+  hyphenate: boolean;
 }
 
 /** Installing the plugin is the choice of a quiet top row, so that part is on;
@@ -61,6 +63,7 @@ export const DEFAULT_SETTINGS: KlartextSettings = {
   hideBaseToolbarOnScroll: false,
   mergeTableCells: false,
   themeTaskMarkers: false,
+  hyphenate: false,
 };
 
 export function normalizeSettings(raw: unknown): KlartextSettings {

@@ -8,7 +8,7 @@
 
 import type { KlartextSettings } from "./settings";
 
-export type SwitchKey = Exclude<keyof KlartextSettings, "topRowOnHover" | "hideWindowButtons" | "mergeTableCells" | "themeTaskMarkers">;
+export type SwitchKey = Exclude<keyof KlartextSettings, "topRowOnHover" | "hideWindowButtons" | "mergeTableCells" | "themeTaskMarkers" | "hyphenate">;
 
 export interface Switch {
   key: SwitchKey;

@@ -500,3 +500,30 @@ td.klartext-cell-reaching {
 td.klartext-cell-covered {
   display: none !important;
 }
+
+/* ── Automatic hyphenation ───────────────────────────────────────────────────
+   A long word breaks at a syllable at the end of a line instead of leaving
+   the line short. Keyed on klartext-hyphenate, which the plugin sets while
+   the switch is on. A browser hyphenates only text whose language it is told
+   and has a dictionary for: src/hyphenation.ts puts the note's language, read
+   from its words, on the note and on any block written in another one.
+   Reading view and Live Preview; Source mode shows the Markdown as typed.
+   Headings, code, links and properties stay whole: a heading is set to be
+   read at a glance, and code, a link or a property is something to copy.
+   -webkit- for the WebKit of older iOS versions. */
+body.klartext-hyphenate .markdown-rendered,
+body.klartext-hyphenate .markdown-source-view.is-live-preview .cm-content {
+  -webkit-hyphens: auto;
+  hyphens: auto;
+}
+
+body.klartext-hyphenate .markdown-rendered :is(h1, h2, h3, h4, h5, h6, code, pre, a, .metadata-container),
+body.klartext-hyphenate .markdown-source-view.is-live-preview .cm-content :is(.HyperMD-header, .HyperMD-codeblock, .cm-inline-code, .cm-link, .cm-url, .cm-hmd-internal-link, code, pre, a, h1, h2, h3, h4, h5, h6) {
+  -webkit-hyphens: manual;
+  hyphens: manual;
+}
+
+body.klartext-hyphenate .inline-title {
+  -webkit-hyphens: manual;
+  hyphens: manual;
+}
