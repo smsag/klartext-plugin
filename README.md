@@ -233,8 +233,20 @@ That would be built as editor decorations, which work under any theme.
 
 ## Failures
 
-A failure is logged to the developer console once, prefixed `[klartext]`; the
-same failure again stays quiet, since the top row polls twenty times a second.
+Every line the plugin writes to the developer console starts with
+`[klartext]`, so a bug report can be filtered to it. A failure is logged the
+first time it happens in a place (the poll, a table, a note's language) and
+any later failure there stays quiet, whatever its message: the top row polls
+twenty times a second, and a table is drawn again on every keystroke.
+
+Each piece of work that Obsidian or the browser hands the plugin (drawing a
+table, reading a note's language, following a base's scroll, the poll) is
+caught on its own, so a failure costs that piece and never the note's
+rendering or the rest of the plugin. Two failures are said where they are
+missed as well: a top row that cannot run says why under its own switch in
+the settings, and a setting that could not be saved says so in a notice
+(it still applies until Obsidian restarts). A `data.json` that no longer
+parses leaves the defaults in place and is logged; the plugin still starts.
 
 ## Verified, and not
 
@@ -306,24 +318,34 @@ npm run check   # unit tests, then typecheck (sources and tests) and build
 npm run dev     # rebuild on change
 ```
 
-CI runs the same check on every push and pull request.
+CI runs the same check on every push and pull request. Actions are pinned to
+a commit and dependencies install with `--ignore-scripts`, in CI and in the
+release. The **Audit** workflow fails on a known high-severity advisory in the
+build tools, weekly and on any change to the dependencies, but not on every
+change: an advisory published for a build tool says nothing about a docs fix.
 
 ### Releasing
 
 Obsidian installs a plugin from its GitHub release, not from the repository.
 A release is cut by the **Release** workflow (Actions → Release → Run
 workflow, on `main`, with the version) after `manifest.json` and
-`package.json` carry that version on `main`. It refuses, before anything is
-published, if the version is not `x.y.z`, differs from either file or is
-already tagged, or if `npm run check` fails. Otherwise it tags the commit with
+`package.json` (and `package-lock.json`) carry that version on `main`, and
+`CHANGELOG.md` has a section for it. It refuses, before anything is
+published, if the version is not `x.y.z`, differs from any of those files,
+has no changelog section or is already tagged, or if `npm run check` fails.
+The build runs with read access only; a separate job, which installs and runs
+nothing, is the only one that can publish. Otherwise it tags the commit with
 the bare version, as Obsidian expects, and attaches the `main.js` it built with
 `manifest.json` and `styles.css`. The notes are GitHub's, generated from the
 merged pull requests.
 
 Every decision lives in `src/topRow.ts`, `src/settings.ts`, `src/switches.ts`,
-`src/windowButtons.ts` and `src/tableSpans.ts`, which import neither Obsidian
-nor Electron and have unit tests. `src/tableCells.ts` marks a table's cells
-through a small interface the tests stand in for. `src/main.ts` only reads the pointer, the window and the DOM, and
+`src/windowButtons.ts`, `src/tableSpans.ts`, `src/language.ts`,
+`src/baseToolbar.ts` and `src/log.ts`, which import neither Obsidian nor
+Electron and have unit tests. `src/tableCells.ts` marks a table's cells
+through a small interface the tests stand in for; `src/hyphenation.ts` and
+`src/baseToolbarWiring.ts` apply the language and the toolbar's offset to the
+editor and the DOM. `src/main.ts` only reads the pointer, the window and the DOM, and
 applies the answer. `tests/styles.test.ts` holds the stylesheet's scopes — each
 one a class Obsidian reuses elsewhere, got wrong once and measured — and fails
 in the forbidden direction for every one of them.

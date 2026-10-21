@@ -1,9 +1,9 @@
 {
   "name": "klartext-plugin",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "license": "MIT",
-  "description": "Klartext: the window's top row on hover, for Obsidian",
+  "description": "Obsidian's furniture on your terms: the top row (tabs, back and forward, macOS window buttons) only while the pointer is at the top, and switches to hide the status bar, scroll bars, tooltips and more.",
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
     "build": "tsc --noEmit && node esbuild.config.mjs --production",
@@ -11,10 +11,10 @@
     "check": "npm test && npm run build"
   },
   "devDependencies": {
-    "@types/node": "^24.13.4",
+    "@types/node": "^24.19.2",
     "esbuild": "^0.28.2",
-    "obsidian": "^1.13.0",
+    "obsidian": "^1.14.4",
     "typescript": "^5.7.2",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.5"
   }
 }

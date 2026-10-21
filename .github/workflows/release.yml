@@ -5,10 +5,15 @@
 #
 # It refuses, before anything is published, unless:
 #   - it runs on the default branch;
-#   - the version is x.y.z, equals manifest.json's and package.json's, and has
-#     no tag yet;
+#   - the version is x.y.z, equals manifest.json's, package.json's and
+#     package-lock.json's, has a section in CHANGELOG.md, and has no tag yet;
 #   - npm run check passes (unit tests, typecheck, production build).
 # main.js is not committed; the release attaches the one this run built.
+#
+# Two jobs, so the token that can publish never meets third-party code: the
+# build installs and runs the tools with read access only and hands the three
+# files over as an artifact; the publish job checks nothing out, installs
+# nothing, and only uploads them.
 name: Release
 
 on:
@@ -19,23 +24,26 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     env:
       VERSION: ${{ inputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -49,34 +57,69 @@ jobs:
             exit 1
           fi
 
-      - name: Version is x.y.z, matches manifest.json and package.json, and is not tagged yet
+      - name: Version is x.y.z, matches every version file and the changelog, and is not tagged yet
         run: |
           if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "::error::\"$VERSION\" is not x.y.z (Obsidian tags carry no v)."
             exit 1
           fi
-          for file in manifest.json package.json; do
+          for file in manifest.json package.json package-lock.json; do
             found="$(node -p "require('./$file').version")"
             if [ "$found" != "$VERSION" ]; then
               echo "::error::$file says $found, not $VERSION. Bump it on $GITHUB_REF_NAME first."
               exit 1
             fi
           done
-          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null; then
+          if ! grep -Fq "## [$VERSION]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no \"## [$VERSION]\" section."
+            exit 1
+          fi
+          # --exit-code: 0 the tag exists, 2 it does not; anything else is a
+          # lookup that failed, which must not pass for "not tagged".
+          status=0
+          git ls-remote --exit-code --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$VERSION" >/dev/null || status=$?
+          if [ "$status" -eq 0 ]; then
             echo "::error::Tag $VERSION already exists."
+            exit 1
+          elif [ "$status" -ne 2 ]; then
+            echo "::error::Could not check whether tag $VERSION exists (git ls-remote exited $status)."
             exit 1
           fi
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       - name: Tests, typecheck and build
         run: npm run check
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release
+          path: |
+            main.js
+            manifest.json
+            styles.css
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release
 
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$VERSION" main.js manifest.json styles.css \
+            --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "$VERSION" \
             --generate-notes

@@ -5,6 +5,52 @@ generated notes.
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-10-21
+
+### Fixed
+
+- **On macOS the top row hides again after the pointer leaves through it.**
+  The plugin trusted the page's last sighting of the pointer in the band for
+  as long as no new one came; over the header, a drag region where macOS
+  sends no mouse events, a pointer leaving the window through the top edge
+  left that sighting behind, and the row stayed. A sighting now counts for
+  one fast poll; after that Electron is asked.
+- **A table row with a lone backtick keeps its cells.** A backtick without
+  a partner opened inline code to the end of the row, so its pipes stopped
+  splitting it and the cell above reached down over the rest. It is now a
+  literal backtick, as in Markdown.
+- **A note saved with Windows line endings** has its frontmatter and code
+  left out when its language is read, as any other note.
+- **A settings file that no longer parses** leaves the defaults in place
+  instead of stopping the plugin from starting.
+- **A setting that cannot be saved** still applies for the session and says
+  so in a notice; before, it neither applied nor said anything.
+- **A failure in one table, one note's language or one base** costs that
+  piece of work only; before, a throw could stop Reading view from drawing
+  the note, or switch an editor extension off until a restart.
+
+### Changed
+
+- **The settings say what does not work, and why.** The pop-out window
+  buttons' toggle is greyed out while the top row does not fade, and the top
+  row's toggle names the reason when it cannot run on a device.
+- **Less motion when asked for:** the top row appears and goes without its
+  fade under the system's "Reduce motion".
+- **Hyphenation keeps tags, keys and maths whole**, like code and links.
+- **Less work while typing:** Live Preview reads a note's language again
+  only when an edit touches the stretch it is read from; the table watcher
+  does nothing while its switch is off; a scroll inside a base from anything
+  but its scroller no longer forces a style recalculation; Reading view is
+  redrawn once, not twice, when tables and hyphenation change together.
+- **One voice in the console:** every line starts with `[klartext]`, and a
+  failure is logged once per place, however its message varies.
+- **Release and CI:** actions pinned to commits, no token kept on disk,
+  dependencies installed without their scripts, a weekly audit (and one on
+  every dependency change) for high-severity advisories, the publishing
+  token kept away from the build, a release that needs its changelog section
+  and refuses when it cannot tell whether its tag exists. Four advisories in
+  the build tools fixed.
+
 ### Removed
 
 - **Pasted lines staying in their quote, and the command that put
@@ -13,6 +59,8 @@ generated notes.
   their quote* is gone, and a stored value for it is ignored.
 - **The command Copy diagnostics**, with the report and the counters behind
   it. A failure is still logged to the console, once.
+- **The 0.4 settings migration** (0.4's one header switch for the phone, now
+  two): the plugin has no outside users to carry over.
 
 ## [0.9.0] — 2026-10-21
 
