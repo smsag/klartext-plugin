@@ -38,7 +38,7 @@ export function splitRow(line: string): string[] {
     if (ch === "`") {
       const run = runs[next++]!;
       if (code === 0) {
-        if (runs.slice(next).some((r) => r.length === run.length)) code = run.length;
+        if (run.closed) code = run.length;
       } else if (code === run.length) {
         code = 0;
       }
@@ -60,9 +60,10 @@ export function splitRow(line: string): string[] {
   return cells;
 }
 
-/** The row's backtick runs that are not escaped, in order, each with its length. */
-function backtickRuns(line: string): { length: number }[] {
-  const runs: { length: number }[] = [];
+/** The row's backtick runs that are not escaped, in order, each with its
+ *  length and whether a later run of the same length could close it. */
+function backtickRuns(line: string): { length: number; closed: boolean }[] {
+  const runs: { length: number; closed: boolean }[] = [];
   for (let at = 0; at < line.length; ) {
     if (line[at] === "\\") {
       at += 2;
@@ -74,8 +75,15 @@ function backtickRuns(line: string): { length: number }[] {
     }
     let length = 1;
     while (line[at + length] === "`") length++;
-    runs.push({ length });
+    runs.push({ length, closed: false });
     at += length;
+  }
+  // One pass from the end: a run can be closed if a run of its length follows.
+  const later = new Set<number>();
+  for (let i = runs.length - 1; i >= 0; i--) {
+    const run = runs[i]!;
+    run.closed = later.has(run.length);
+    later.add(run.length);
   }
   return runs;
 }

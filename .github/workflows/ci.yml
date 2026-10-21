@@ -4,8 +4,8 @@
 #
 # Supply chain: actions are pinned to a commit (a tag can be moved), the
 # checkout keeps no token on disk, and dependencies install without running
-# their install scripts. The bundle has no runtime dependencies; the audit
-# covers the tools that build it.
+# their install scripts. Advisories are audit.yml's: an advisory published
+# for a build tool should not turn an unrelated change red.
 name: CI
 
 on:
@@ -34,8 +34,6 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run check
-      - name: No known vulnerability of high severity in the build tools
-        run: npm audit --audit-level=high
       - name: manifest.json, package.json and package-lock.json carry the same version
         run: |
           m="$(node -p "require('./manifest.json').version")"

@@ -12,6 +12,7 @@
 
 import { ViewPlugin, type EditorView, type PluginValue, type ViewUpdate } from "@codemirror/view";
 import type { MarkdownPostProcessorContext } from "obsidian";
+import { lastValue } from "./lastValue";
 import { warnOnce } from "./log";
 import { anyReaching, tableSpans } from "./tableSpans";
 
@@ -84,8 +85,7 @@ export function tableLines(lineAt: (n: number) => string | null, first: number, 
 /** The post-processor: a rendered section with a table, read from its source. */
 export function readingProcessor(enabled: () => boolean) {
   // Every section of a note is handed the whole note: split it once, not once per table.
-  let lastText: string | null = null;
-  let lastLines: string[] = [];
+  const split = lastValue((text: string) => text.split("\n"));
   return (el: HTMLElement, ctx: MarkdownPostProcessorContext): void => {
     const table = el.querySelector("table");
     if (!table || !enabled()) return;
@@ -93,11 +93,7 @@ export function readingProcessor(enabled: () => boolean) {
     // a hover preview of a part of a note): then there is no source to read.
     const info = ctx.getSectionInfo(el);
     if (!info) return;
-    if (info.text !== lastText) {
-      lastText = info.text;
-      lastLines = info.text.split("\n");
-    }
-    const lines = lastLines;
+    const lines = split.get(info.text);
     applySpans(table, tableSpans(tableLines((n) => (n <= info.lineEnd ? lines[n] ?? null : null), info.lineStart)));
   };
 }

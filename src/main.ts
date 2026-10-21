@@ -32,6 +32,7 @@ import {
   coveredByFront,
   inTopBand,
   nextState,
+  seenInBand,
   shouldPoll,
   windowButtonsVisible,
   type Point,
@@ -203,9 +204,8 @@ class RowWindow {
 export default class KlartextPlugin extends Plugin {
   override settings: KlartextSettings = { ...DEFAULT_SETTINGS };
   private cursor: (() => Point) | null = null;
-  /** Why the top row cannot run here, when it cannot; null when it can.
-   *  The settings tab says it beside the switch it leaves without effect. */
-  unavailable: string | null = null;
+  /** Why the top row cannot run here, when it cannot; null when it can. */
+  private unavailable: string | null = null;
   /** The main window and every pop-out, each with its own row. */
   private readonly windows = new Map<Window, RowWindow>();
   /** The poll loop, running only while the top row fades. */
@@ -216,6 +216,11 @@ export default class KlartextPlugin extends Plugin {
   private hyphenated = false;
   /** A base's toolbar on a phone, while its switch is on. */
   private readonly baseToolbars = new BaseToolbars(document);
+
+  /** Read by the settings tab, which says it beside the switch it leaves without effect. */
+  get unavailableReason(): string | null {
+    return this.unavailable;
+  }
 
   override async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.readStoredSettings());
@@ -460,8 +465,8 @@ export default class KlartextPlugin extends Plugin {
     }
 
     let inBand = row.lastInBand;
-    if (row.pointer !== null && row.pointer.y < row.bandCss) {
-      inBand = true; // the page saw it there itself: nothing to ask
+    if (seenInBand(row.pointer, row.bandCss, now)) {
+      inBand = true; // the page saw it there just now: nothing to ask
     } else if (
       row.native &&
       shouldPoll({ now, resizing, shown: row.state.shown, pointer: row.pointer, lastPollAt: row.lastPollAt, bandCss: row.bandCss })
@@ -471,7 +476,7 @@ export default class KlartextPlugin extends Plugin {
         inTopBand(at, row.native.getContentBounds(), row.bandCss, row.zoom()) &&
         !coveredByFront(at, front(row), row.pointer?.at ?? null, frontSeen());
       row.lastPollAt = now;
-    } else if (row.pointer !== null && !resizing) {
+    } else if (row.pointer !== null && row.pointer.y >= row.bandCss && !resizing) {
       inBand = false; // seen deep in the note, and already confirmed there
     }
     row.lastInBand = inBand;
@@ -521,10 +526,10 @@ class KlartextSettingTab extends PluginSettingTab {
     const here = { desktop: Platform.isDesktopApp, macOS: Platform.isMacOS, phone: Platform.isPhone };
 
     new Setting(el).setName("Top row").setHeading();
-    const fading = this.plugin.settings.topRowOnHover;
+    // Said here, where it is missed, rather than only in the console.
+    const why = this.plugin.unavailableReason;
+    const fading = this.plugin.settings.topRowOnHover && why === null;
     if (here.desktop) {
-      // Said here, where it is missed, rather than only in the console.
-      const why = this.plugin.unavailable;
       this.toggle(
         "Show the top row only on hover",
         "The tab strip and the note header fade out, and come back when the pointer reaches the top of the window. " +
@@ -540,7 +545,7 @@ class KlartextSettingTab extends PluginSettingTab {
         "macOS only, with the window frame set to hidden. In a pop-out window the red, yellow and green buttons " +
           "appear and disappear together with its top row. The main window always keeps its buttons. With a title " +
           "bar, and in fullscreen, they are left alone." +
-          (fading ? "" : " Needs the top row to fade on hover."),
+          (fading ? "" : " Needs the top row to fade on hover, which it does not here."),
         "hideWindowButtons",
         { disabled: !fading },
       );
